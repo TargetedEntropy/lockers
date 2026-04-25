@@ -58,7 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download all jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
           pattern: jars-*
@@ -86,7 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download jar
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: jars-${{ matrix.mc_version }}
           path: dist
