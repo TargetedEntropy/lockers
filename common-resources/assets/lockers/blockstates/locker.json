@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "lockers:block/locker" },
+    "facing=south": { "model": "lockers:block/locker", "y": 180 },
+    "facing=east":  { "model": "lockers:block/locker", "y": 90 },
+    "facing=west":  { "model": "lockers:block/locker", "y": 270 }
+  }
+}

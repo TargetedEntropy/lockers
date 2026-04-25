@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (tag/branch/SHA)"
+        required: true
+        default: "main"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # needed to create GitHub Releases
+
+jobs:
+  build:
+    name: Build ${{ matrix.mc_version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        mc_version: ["1.21.1", "1.21.4"]
+    outputs:
+      mod_version: ${{ steps.version.outputs.mod_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build
+        run: ./gradlew :neoforge-${{ matrix.mc_version }}:build
+      - name: Read mod version
+        id: version
+        run: |
+          MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d'=' -f2)
+          echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jars-${{ matrix.mc_version }}
+          path: neoforge-${{ matrix.mc_version }}/build/libs/*.jar
+          retention-days: 7
+
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all jars
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: jars-*
+          merge-multiple: true
+      - name: List artifacts
+        run: find dist -type f
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "Automated release. See CHANGELOG.md for details." \
+            dist/*.jar
+
+  publish:
+    name: Publish ${{ matrix.mc_version }} to CurseForge and Modrinth
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        mc_version: ["1.21.1", "1.21.4"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download jar
+        uses: actions/download-artifact@v4
+        with:
+          name: jars-${{ matrix.mc_version }}
+          path: dist
+      # Publishes to whichever platforms have secrets/vars configured.
+      # Missing CURSEFORGE_TOKEN / MODRINTH_TOKEN cause the action to skip
+      # that platform silently rather than fail the whole job.
+      - name: Publish
+        uses: Kir-Antipov/mc-publish@v3
+        with:
+          curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: dist/*.jar
+          name: "Lockers ${{ needs.build.outputs.mod_version }} for ${{ matrix.mc_version }}"
+          version: "${{ needs.build.outputs.mod_version }}+${{ matrix.mc_version }}"
+          version-type: release
+          loaders: neoforge
+          game-versions: ${{ matrix.mc_version }}

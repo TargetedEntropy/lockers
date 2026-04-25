@@ -1,0 +1,20 @@
+[versions]
+# Build tooling
+moddev = "2.0.141"
+jacoco = "0.8.12"
+
+# Test stack
+junit = "5.11.3"
+mockito = "5.14.2"
+assertj = "3.26.3"
+
+[libraries]
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-junit = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+[plugins]
+moddev = { id = "net.neoforged.moddev", version.ref = "moddev" }

@@ -1,0 +1,9 @@
+{
+  "block.lockers.locker": "Locker",
+  "item.lockers.locker": "Locker",
+  "container.lockers.locker": "Locker",
+  "itemGroup.lockers.main": "Lockers",
+  "gui.lockers.slot": "Slot %s",
+  "message.lockers.not_owner": "This locker belongs to someone else.",
+  "message.lockers.slot_clicked": "Clicked slot %s"
+}
