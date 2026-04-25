@@ -3,7 +3,12 @@
   "item.lockers.locker": "Locker",
   "container.lockers.locker": "Locker",
   "itemGroup.lockers.main": "Lockers",
-  "gui.lockers.slot": "Slot %s",
+
+  "gui.lockers.save": "Save",
+  "gui.lockers.load": "Load",
+  "gui.lockers.empty_slot": "Empty",
+
   "message.lockers.not_owner": "This locker belongs to someone else.",
-  "message.lockers.slot_clicked": "Clicked slot %s"
+  "message.lockers.saved": "Saved loadout '%s'.",
+  "message.lockers.loaded": "Loaded loadout '%s'."
 }

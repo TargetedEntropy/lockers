@@ -38,12 +38,18 @@ sourceSets {
 }
 
 configurations {
-    named("gametestImplementation") { extendsFrom(configurations.implementation.get()) }
+    named("gametestImplementation") {
+        extendsFrom(configurations.implementation.get())
+        extendsFrom(configurations.compileOnly.get())
+    }
     named("gametestRuntimeOnly") { extendsFrom(configurations.runtimeOnly.get()) }
 }
 
 neoForge {
     setVersion(neoforgeVersion)
+
+    // Put NeoForge + Minecraft on the gametest source set's classpath.
+    addModdingDependenciesTo(sourceSets.named("gametest").get())
 
     parchment {
         minecraftVersion.set(parchmentMc)

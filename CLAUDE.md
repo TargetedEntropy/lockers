@@ -141,18 +141,42 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - **Don't use `ServiceLoader` for bridge selection.** `ModList.get().isLoaded(...)` is authoritative.
 - **Don't use `--no-verify` on commits.** If a hook fails, fix it.
 
-## What's implemented vs. stubbed (v0.1.0 scaffold)
-
-Current state of the initial scaffold — these are the high-value places to pick up next:
+## What's implemented vs. stubbed (v0.1.0-alpha)
 
 - ✅ `common` domain model + codec + access policy + bridge selector (99% line, 96% branch coverage)
 - ✅ Multi-module Gradle + MDG 2.0.141 + both per-MC-version modules build clean
 - ✅ Block + BlockEntity persist `LockerData` through `DataTagBridge`
 - ✅ Menu + Screen open for the owner; non-owners are denied with a translatable message
 - ✅ Creative-tab registration; static blockstate/model/recipe/loot table JSON
-- ⚠️ **Curios and Accessories bridges are stubs** (`Curios9Bridge`, `Curios10Bridge`, `Accessories1Bridge`, `Accessories2Bridge`). `capture(...)` returns an empty map and logs a warning; `apply(...)` logs a warning. Wire these up to `CuriosApi.getCuriosInventory(Player)` (Curios 10) / legacy helpers (Curios 9) / `AccessoriesCapability.get(Player)` next.
-- ⚠️ **Network packets (save/load/rename/delete) are not yet wired.** `LockerScreen.onSlotButton` currently only displays an overlay message. Add payloads under `network/` using `RegisterPayloadHandlersEvent`.
+- ✅ **Network packets** — `Save`/`Load`/`Rename`/`Delete`/`SyncLocker` payloads registered via `RegisterPayloadHandlersEvent`. All C2S packets re-run `AccessPolicy.canAccess` server-side before mutating (client trust = 0).
+- ✅ **Real capture/apply for vanilla slots** — `saveLoadoutFromPlayer` grabs the 4 armor slots + offhand via `player.getItemBySlot(...)` and stashes NBT blobs; `loadLoadoutToPlayer` restores them, putting the previously-equipped items back into the player's main inventory (dropping on the floor if full — never silently deleted).
+- ✅ **GUI wired** — `LockerScreen` holds the latest `LockerData` from `SyncLockerPacket`, renders per-row slot names (or "Empty"), [Save] / [Load] / [X] buttons disabled appropriately.
+- ⚠️ **Curios and Accessories bridges are stubs.** `capture(...)` returns empty, `apply(...)` logs a warning. Vanilla armor + offhand works end-to-end without them. Wire them to `CuriosApi.getCuriosInventory(Player)` (Curios 10.x) / equivalent (Curios 9.x) / `AccessoriesCapability.get(Player)` to round out v0.2.
+- ⚠️ **Rename UX deferred.** Server honors `RenameLoadoutPacket`; the screen auto-names as "Loadout N" on save. Adding an editable text-field row is v0.2.
 - ⚠️ **DataGen is not active.** Recipes, models, loot, and blockstates live as static JSON under `common-resources/`. If the set grows, wire `GatherDataEvent` in each module and delete the static copies.
-- ⚠️ **GameTest suite is empty.** The `gametest` source set is registered and the CI job skeleton exists (gated behind `if: false`). First tests to write: place-and-persist across chunk unload; owner-vs-non-owner access denial.
-- ⚠️ **GUI textures not authored.** `LockerScreen` draws a plain dark rectangle — `textures/gui/locker.png` is referenced but absent.
-- ⚠️ `BlockEntity.getData` throws if accessed before `loadAdditional` populated it. This path is theoretically unreachable but should be swapped for `Optional<LockerData>` accessors if a test surfaces the NPE.
+- ⚠️ **GUI textures not authored.** `LockerScreen` draws a plain dark rectangle — `textures/gui/locker.png` is referenced but not shipped; the plain fill fallback is acceptable for alpha.
+- ⚠️ **GameTest:** one in-world codec roundtrip smoke test exists (`LockerPlacementGameTest.lockerPersistsData`). CI job is still gated (`if: false`) until the `lockers:empty_3x3` structure NBT is authored. Full player-driven save/load flow is manually verified — see below.
+- ⚠️ `BlockEntity.getData` throws if accessed before `loadAdditional` populated it. Theoretically unreachable but swap for an `Optional<LockerData>` accessor if a test surfaces the NPE.
+
+## Manual verification (required before tagging a release)
+
+Automated coverage in `common` + the CI build matrix catch logic and compile regressions, but the client-facing save/load/GUI flow cannot be exercised from the CLI. Before tagging:
+
+```sh
+./gradlew :neoforge-1.21.1:runClient
+# in-game:
+#   /give @s minecraft:iron_chestplate
+#   /give @s minecraft:diamond_helmet
+#   (equip them)
+#   /give @s lockers:locker
+#   place the locker, right-click it
+#   click [Save] on Slot 1 — expect overlay "Saved loadout 'Loadout 1'."
+#   remove armor (drop it or /clear @s)
+#   right-click the locker again, click [Load] on Slot 1 — expect armor restored
+#   click [X] on Slot 1 — expect slot to go back to "Empty"
+#   try to access with a second player (/op second; /deop self) — expect "This locker belongs to someone else."
+#   break the locker, re-place it, verify loadout data was lost (ownership resets per-block)
+# repeat with :neoforge-1.21.4:runClient
+```
+
+If this flow works end-to-end on both MC versions, tag `v0.1.0-alpha` and let the release workflow publish.

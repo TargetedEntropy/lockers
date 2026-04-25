@@ -82,6 +82,7 @@ public class LockerBlock extends BaseEntityBlock {
             return InteractionResult.CONSUME;
         }
         sp.openMenu(new LockerMenuProvider(be), pos);
+        be.syncTo(sp);  // prime the client-side LockerScreen with current state
         return InteractionResult.CONSUME;
     }
 

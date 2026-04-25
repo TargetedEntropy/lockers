@@ -1,13 +1,15 @@
 # Lockers
 
 A NeoForge Minecraft mod that mirrors the Locker feature from the game **Rust**:
-place a Locker block, save up to **6 named loadouts** of armor + accessories,
-and instantly swap between them.
+place a Locker block, save up to **6 loadouts** of armor + offhand, and
+instantly swap between them.
 
-- Full **Curios** and **Accessories** API support (auto-detected, with a
-  server-config override if both are installed).
-- **Owner-only** access by default; server configurable to public.
+- **Owner-only** access by default; server configurable to public or ops-bypass.
 - Loadouts persist per-block across chunk unloads and server restarts.
+- **Curios and Accessories compat layer present** — interface + version-specific
+  bridges land the hooks for accessory slots. Actual capture/apply is stubbed
+  in **v0.1.0-alpha** (vanilla armor + offhand only); full Curios/Accessories
+  integration targeted for v0.2.
 
 ## Supported versions
 

@@ -2,24 +2,33 @@ package com.targetedentropy.lockers.neoforge.block;
 
 import com.targetedentropy.lockers.common.access.AccessPolicy;
 import com.targetedentropy.lockers.common.config.CommonConfig;
+import com.targetedentropy.lockers.common.model.EquipmentSlot;
+import com.targetedentropy.lockers.common.model.Loadout;
 import com.targetedentropy.lockers.common.model.LockerData;
+import com.targetedentropy.lockers.common.model.SlotId;
 import com.targetedentropy.lockers.common.serialize.DataTag;
 import com.targetedentropy.lockers.common.serialize.LockerDataCodec;
+import com.targetedentropy.lockers.neoforge.compat.BridgeRegistry;
 import com.targetedentropy.lockers.neoforge.nbt.DataTagBridge;
+import com.targetedentropy.lockers.neoforge.nbt.ItemStackSerializer;
+import com.targetedentropy.lockers.neoforge.network.SyncLockerPacket;
 import com.targetedentropy.lockers.neoforge.registry.LockersBlockEntities;
 import java.time.Instant;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot.Type;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.network.PacketDistributor;
 
-/**
- * Persistent state for a single Locker block. Holds {@link LockerData} and
- * serializes it through the {@link DataTagBridge}. Kept small because unit
- * logic lives in {@code common}.
- */
 public class LockerBlockEntity extends BlockEntity {
 
     private static final String TAG_ROOT = "lockerData";
@@ -30,7 +39,8 @@ public class LockerBlockEntity extends BlockEntity {
         super(LockersBlockEntities.LOCKER.get(), pos, state);
     }
 
-    /** Called by {@link LockerBlock#setPlacedBy} to stamp owner + creation time. */
+    // --- placement & accessors -------------------------------------------------
+
     public void initOnPlace(ServerPlayer placer) {
         this.data = LockerData.fresh(
                 placer.getUUID(),
@@ -41,9 +51,6 @@ public class LockerBlockEntity extends BlockEntity {
 
     public LockerData getData() {
         if (data == null) {
-            // Can happen on a chunk-load before loadAdditional populated us. Shouldn't
-            // normally occur since loadAdditional precedes any access, but keep a
-            // harmless sentinel so the NPE path isn't silently swallowed.
             throw new IllegalStateException("LockerBlockEntity accessed before data was populated");
         }
         return data;
@@ -53,8 +60,14 @@ public class LockerBlockEntity extends BlockEntity {
         return data != null;
     }
 
-    public void setData(LockerData data) {
-        this.data = data;
+    /**
+     * Test-only: swap in a {@link LockerData} directly. Production code paths
+     * should call {@link #initOnPlace} / {@link #saveLoadoutFromPlayer} etc.
+     * Named to avoid colliding with the inherited
+     * {@code BlockEntity.setData(AttachmentType, T)} overload.
+     */
+    public void replaceData(LockerData newData) {
+        this.data = newData;
         setChanged();
     }
 
@@ -64,6 +77,83 @@ public class LockerBlockEntity extends BlockEntity {
         return AccessPolicy.canAccess(player.getUUID(), isOp, data, CommonConfig.defaults())
                 .allowed();
     }
+
+    // --- loadout operations ----------------------------------------------------
+
+    /** Capture player's current armor + offhand (+ accessories via bridge) into {@code slot}. */
+    public void saveLoadoutFromPlayer(int slot, String rawName, ServerPlayer sp) {
+        if (data == null) return;
+        String name = sanitizeName(rawName, "Loadout " + (slot + 1));
+        HolderLookup.Provider regs = sp.level().registryAccess();
+
+        Map<EquipmentSlot, byte[]> equipment = new EnumMap<>(EquipmentSlot.class);
+        putIfNotEmpty(equipment, EquipmentSlot.HEAD, sp.getItemBySlot(
+                net.minecraft.world.entity.EquipmentSlot.HEAD), regs);
+        putIfNotEmpty(equipment, EquipmentSlot.CHEST, sp.getItemBySlot(
+                net.minecraft.world.entity.EquipmentSlot.CHEST), regs);
+        putIfNotEmpty(equipment, EquipmentSlot.LEGS, sp.getItemBySlot(
+                net.minecraft.world.entity.EquipmentSlot.LEGS), regs);
+        putIfNotEmpty(equipment, EquipmentSlot.FEET, sp.getItemBySlot(
+                net.minecraft.world.entity.EquipmentSlot.FEET), regs);
+        putIfNotEmpty(equipment, EquipmentSlot.OFFHAND, sp.getItemBySlot(
+                net.minecraft.world.entity.EquipmentSlot.OFFHAND), regs);
+
+        Map<SlotId, byte[]> accessories = new LinkedHashMap<>(BridgeRegistry.get().capture(sp));
+
+        Loadout lo = new Loadout(name, Instant.now(), equipment, accessories);
+        this.data = data.withSlot(slot, lo);
+        setChanged();
+        syncTo(sp);
+        sp.displayClientMessage(
+                Component.translatable("message.lockers.saved", name), true);
+    }
+
+    /** Apply loadout in {@code slot} to the player (swapping in whatever was equipped). */
+    public void loadLoadoutToPlayer(int slot, ServerPlayer sp) {
+        if (data == null) return;
+        Optional<Loadout> maybe = data.slot(slot);
+        if (maybe.isEmpty()) return;
+        Loadout lo = maybe.get();
+        HolderLookup.Provider regs = sp.level().registryAccess();
+
+        applySlot(sp, net.minecraft.world.entity.EquipmentSlot.HEAD,    lo.equipment().get(EquipmentSlot.HEAD),    regs);
+        applySlot(sp, net.minecraft.world.entity.EquipmentSlot.CHEST,   lo.equipment().get(EquipmentSlot.CHEST),   regs);
+        applySlot(sp, net.minecraft.world.entity.EquipmentSlot.LEGS,    lo.equipment().get(EquipmentSlot.LEGS),    regs);
+        applySlot(sp, net.minecraft.world.entity.EquipmentSlot.FEET,    lo.equipment().get(EquipmentSlot.FEET),    regs);
+        applySlot(sp, net.minecraft.world.entity.EquipmentSlot.OFFHAND, lo.equipment().get(EquipmentSlot.OFFHAND), regs);
+
+        BridgeRegistry.get().apply(sp, lo.accessories());
+
+        sp.displayClientMessage(
+                Component.translatable("message.lockers.loaded", lo.name()), true);
+    }
+
+    public void renameLoadout(int slot, String rawName, ServerPlayer sp) {
+        if (data == null) return;
+        Optional<Loadout> maybe = data.slot(slot);
+        if (maybe.isEmpty()) return;
+        String name = sanitizeName(rawName, maybe.get().name());
+        this.data = data.withSlot(slot, maybe.get().withName(name));
+        setChanged();
+        syncTo(sp);
+    }
+
+    public void deleteLoadout(int slot, ServerPlayer sp) {
+        if (data == null) return;
+        if (data.slot(slot).isEmpty()) return;
+        this.data = data.clearSlot(slot);
+        setChanged();
+        syncTo(sp);
+    }
+
+    // --- sync ------------------------------------------------------------------
+
+    public void syncTo(ServerPlayer sp) {
+        if (data == null) return;
+        PacketDistributor.sendToPlayer(sp, new SyncLockerPacket(getBlockPos(), data));
+    }
+
+    // --- NBT persistence -------------------------------------------------------
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
@@ -81,5 +171,50 @@ public class LockerBlockEntity extends BlockEntity {
             DataTag.Compound encoded = DataTagBridge.fromCompoundTag(tag.getCompound(TAG_ROOT));
             this.data = LockerDataCodec.decode(encoded);
         }
+    }
+
+    // --- helpers ---------------------------------------------------------------
+
+    private static void putIfNotEmpty(Map<EquipmentSlot, byte[]> out, EquipmentSlot key,
+                                      ItemStack stack, HolderLookup.Provider regs) {
+        if (stack.isEmpty()) return;
+        out.put(key, ItemStackSerializer.toBytes(stack, regs));
+    }
+
+    /**
+     * Set the equipment slot. If the slot in the loadout is absent, we leave
+     * the player's current item in place (do not clear). This is a deliberate
+     * "merge" semantics — lets a player save chest+legs only and apply without
+     * stripping head/feet.
+     */
+    private static void applySlot(ServerPlayer sp,
+                                  net.minecraft.world.entity.EquipmentSlot vanillaSlot,
+                                  byte[] bytes,
+                                  HolderLookup.Provider regs) {
+        if (bytes == null) return;
+        ItemStack newStack = ItemStackSerializer.fromBytes(bytes, regs);
+        ItemStack old = sp.getItemBySlot(vanillaSlot);
+        sp.setItemSlot(vanillaSlot, newStack);
+        if (!old.isEmpty() && vanillaSlot.getType() != Type.HUMANOID_ARMOR) {
+            // Offhand: give the previous item back so we never silently delete.
+            if (!sp.getInventory().add(old)) {
+                sp.drop(old, /*dropAround=*/false);
+            }
+        } else if (!old.isEmpty()) {
+            // Armor slot: return the replaced armor to the player's main inventory.
+            if (!sp.getInventory().add(old)) {
+                sp.drop(old, false);
+            }
+        }
+    }
+
+    private static String sanitizeName(String raw, String fallback) {
+        if (raw == null) return fallback;
+        String trimmed = raw.strip();
+        if (trimmed.isEmpty()) return fallback;
+        if (trimmed.length() > Loadout.MAX_NAME_LENGTH) {
+            return trimmed.substring(0, Loadout.MAX_NAME_LENGTH);
+        }
+        return trimmed;
     }
 }
