@@ -6,10 +6,9 @@ instantly swap between them.
 
 - **Owner-only** access by default; server configurable to public or ops-bypass.
 - Loadouts persist per-block across chunk unloads and server restarts.
-- **Curios and Accessories compat layer present** — interface + version-specific
-  bridges land the hooks for accessory slots. Actual capture/apply is stubbed
-  in **v0.1.0-alpha** (vanilla armor + offhand only); full Curios/Accessories
-  integration targeted for v0.2.
+- Full **Curios** and **Accessories** API support — auto-detected; server
+  config picks one if both are installed (`AUTO` / `CURIOS` / `ACCESSORIES` /
+  `NONE`). Slots are saved and restored alongside armor + offhand.
 
 ## Supported versions
 

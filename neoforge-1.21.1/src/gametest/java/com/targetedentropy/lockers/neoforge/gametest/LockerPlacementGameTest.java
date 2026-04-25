@@ -58,10 +58,10 @@ public final class LockerPlacementGameTest {
         be.replaceData(seeded.withSlot(0, loadout));
 
         // Codec + DataTagBridge roundtrip, exercised against live registries.
-        var encodedData = LockerDataCodec.encode(be.getData());
+        var encodedData = LockerDataCodec.encode(be.data().orElseThrow());
         var nbt = DataTagBridge.toCompoundTag(encodedData);
         var back = LockerDataCodec.decode(DataTagBridge.fromCompoundTag(nbt));
-        if (!back.equals(be.getData())) {
+        if (!back.equals(be.data().orElseThrow())) {
             helper.fail("LockerData roundtrip mismatch");
             return;
         }

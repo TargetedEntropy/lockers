@@ -49,15 +49,16 @@ public class LockerBlockEntity extends BlockEntity {
         setChanged();
     }
 
-    public LockerData getData() {
-        if (data == null) {
-            throw new IllegalStateException("LockerBlockEntity accessed before data was populated");
-        }
-        return data;
-    }
-
-    public boolean hasData() {
-        return data != null;
+    /**
+     * Returns the persisted {@link LockerData} if present.
+     * <p>
+     * Empty during the brief window between block placement and the first
+     * {@link #initOnPlace} call (loaded chunks always have data because
+     * {@link #loadAdditional} populates it). Callers MUST handle the empty
+     * case rather than {@code .get()}-ing.
+     */
+    public Optional<LockerData> data() {
+        return Optional.ofNullable(data);
     }
 
     /**

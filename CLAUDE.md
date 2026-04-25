@@ -141,7 +141,7 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - **Don't use `ServiceLoader` for bridge selection.** `ModList.get().isLoaded(...)` is authoritative.
 - **Don't use `--no-verify` on commits.** If a hook fails, fix it.
 
-## What's implemented vs. stubbed (v0.1.0-alpha)
+## What's implemented vs. stubbed (v0.1.0-alpha.1)
 
 - ✅ `common` domain model + codec + access policy + bridge selector (99% line, 96% branch coverage)
 - ✅ Multi-module Gradle + MDG 2.0.141 + both per-MC-version modules build clean
@@ -150,13 +150,14 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - ✅ Creative-tab registration; static blockstate/model/recipe/loot table JSON
 - ✅ **Network packets** — `Save`/`Load`/`Rename`/`Delete`/`SyncLocker` payloads registered via `RegisterPayloadHandlersEvent`. All C2S packets re-run `AccessPolicy.canAccess` server-side before mutating (client trust = 0).
 - ✅ **Real capture/apply for vanilla slots** — `saveLoadoutFromPlayer` grabs the 4 armor slots + offhand via `player.getItemBySlot(...)` and stashes NBT blobs; `loadLoadoutToPlayer` restores them, putting the previously-equipped items back into the player's main inventory (dropping on the floor if full — never silently deleted).
-- ✅ **GUI wired** — `LockerScreen` holds the latest `LockerData` from `SyncLockerPacket`, renders per-row slot names (or "Empty"), [Save] / [Load] / [X] buttons disabled appropriately.
-- ⚠️ **Curios and Accessories bridges are stubs.** `capture(...)` returns empty, `apply(...)` logs a warning. Vanilla armor + offhand works end-to-end without them. Wire them to `CuriosApi.getCuriosInventory(Player)` (Curios 10.x) / equivalent (Curios 9.x) / `AccessoriesCapability.get(Player)` to round out v0.2.
-- ⚠️ **Rename UX deferred.** Server honors `RenameLoadoutPacket`; the screen auto-names as "Loadout N" on save. Adding an editable text-field row is v0.2.
+- ✅ **Curios bridges (9.x and 10.x)** — full capture and apply via `CuriosApi.getCuriosInventory(Player)` → `ICuriosItemHandler.getCurios()` → per-`ICurioStacksHandler` slot iteration. Slot ids encode as `curios:<type>/<index>`. Items previously equipped during apply are returned to the main inventory or dropped (never silently deleted).
+- ✅ **Accessories bridges (1.x and 2.x)** — full capture and apply via `AccessoriesCapability.getOptionally(Player)` → `AccessoriesContainer.getAccessories()` → `ExpandedSimpleContainer`. Same return-to-inventory semantics as Curios.
+- ✅ **Rename UX** — `LockerScreen` renders an `EditBox` per row; Enter or focus-out fires `RenameLoadoutPacket`; auto-named "Loadout N" if blank on save.
+- ✅ **GUI wired end-to-end** — `LockerScreen` holds the latest `LockerData` from `SyncLockerPacket`; per-row state (populated vs. empty) drives button enable/disable; in-progress edits aren't clobbered by sync events.
+- ✅ `BlockEntity.data()` returns `Optional<LockerData>`; callers handle empty rather than risking NPE.
 - ⚠️ **DataGen is not active.** Recipes, models, loot, and blockstates live as static JSON under `common-resources/`. If the set grows, wire `GatherDataEvent` in each module and delete the static copies.
 - ⚠️ **GUI textures not authored.** `LockerScreen` draws a plain dark rectangle — `textures/gui/locker.png` is referenced but not shipped; the plain fill fallback is acceptable for alpha.
-- ⚠️ **GameTest:** one in-world codec roundtrip smoke test exists (`LockerPlacementGameTest.lockerPersistsData`). CI job is still gated (`if: false`) until the `lockers:empty_3x3` structure NBT is authored. Full player-driven save/load flow is manually verified — see below.
-- ⚠️ `BlockEntity.getData` throws if accessed before `loadAdditional` populated it. Theoretically unreachable but swap for an `Optional<LockerData>` accessor if a test surfaces the NPE.
+- ⚠️ **GameTest job remains gated** (`if: false`). The `LockerPlacementGameTest` exists and compiles, but it expects a `lockers:empty_3x3` structure NBT under `data/lockers/structures/` that has not been authored. Without the structure file, the CI job won't run successfully — leaving it gated until someone with a hands-on session can author the binary `.nbt` (or correct-format `.snbt`) and verify it loads on both 1.21.1 and 1.21.4.
 
 ## Manual verification (required before tagging a release)
 

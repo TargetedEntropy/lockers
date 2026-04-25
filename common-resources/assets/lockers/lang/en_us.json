@@ -7,6 +7,7 @@
   "gui.lockers.save": "Save",
   "gui.lockers.load": "Load",
   "gui.lockers.empty_slot": "Empty",
+  "gui.lockers.name_field": "Loadout name",
 
   "message.lockers.not_owner": "This locker belongs to someone else.",
   "message.lockers.saved": "Saved loadout '%s'.",
