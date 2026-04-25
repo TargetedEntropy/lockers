@@ -181,3 +181,21 @@ Automated coverage in `common` + the CI build matrix catch logic and compile reg
 ```
 
 If this flow works end-to-end on both MC versions, tag `v0.1.0-alpha` and let the release workflow publish.
+
+### Smoke-test the published jar (NOT just `runClient`)
+
+`runClient` builds a multi-module classpath that masks packaging bugs. Before
+tagging any release, ALSO drop the *built* jar into a real launcher (PrismLauncher
+or stock NeoForge installer):
+
+```sh
+./gradlew :neoforge-1.21.1:build
+cp neoforge-1.21.1/build/libs/lockers-1.21.1.jar  ~/.../mods/
+# launch the instance; if it crashes with NoClassDefFoundError on a
+# com.targetedentropy.lockers.common.* class, the common module's classes
+# are missing from the jar (see commit 269c8b7 for the fix).
+```
+
+This guard caught a real bug in the v0.1.0-alpha.1 build where
+`implementation(project(":common"))` had been used without merging
+common's output into the per-version jar.
