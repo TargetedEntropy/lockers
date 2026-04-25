@@ -5,7 +5,7 @@ jacoco = "0.8.12"
 
 # Test stack
 junit = "5.11.3"
-mockito = "5.14.2"
+mockito = "5.23.0"
 assertj = "3.26.3"
 
 [libraries]
