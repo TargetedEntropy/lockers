@@ -141,10 +141,11 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - **Don't use `ServiceLoader` for bridge selection.** `ModList.get().isLoaded(...)` is authoritative.
 - **Don't use `--no-verify` on commits.** If a hook fails, fix it.
 
-## What's implemented vs. stubbed (v0.1.0-alpha.3)
+## What's implemented vs. stubbed (v0.1.0-alpha.5)
 
 - ✅ `common` domain model + codec + access policy + bridge selector (99% line, 96% branch coverage)
 - ✅ Multi-module Gradle + MDG 2.0.141 + both per-MC-version modules build clean
+- ✅ **Multi-block (BOTTOM/MIDDLE/TOP)** — Locker is a 3-block-tall multi-block structure (door-style), so the upper visual cells are real solid blocks that prevent placement of other blocks. Only BOTTOM has the `LockerBlockEntity`; right-click on any part forwards to BOTTOM via `bottomOf(...)`. Breaking any part atomically removes all three; saved loadouts ride out on the dropped item via `CUSTOM_DATA`. Placement is blocked when the 2 cells above are occupied. Property: `EnumProperty<LockerPart> PART = {BOTTOM, MIDDLE, TOP}`.
 - ✅ Block + BlockEntity persist `LockerData` through `DataTagBridge`
 - ✅ Menu + Screen open for the owner; non-owners are denied with a translatable message
 - ✅ Creative-tab registration; static blockstate/model/recipe/loot table JSON
