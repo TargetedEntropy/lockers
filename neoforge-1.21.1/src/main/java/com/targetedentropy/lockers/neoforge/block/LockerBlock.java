@@ -178,9 +178,11 @@ public class LockerBlock extends BaseEntityBlock {
 
     @Override
     public RenderShape getRenderShape(BlockState state) {
-        // Only the BOTTOM has the visual model (which extends 3 blocks tall);
-        // MIDDLE and TOP are solid invisible spacers.
-        return state.getValue(PART) == LockerPart.BOTTOM ? RenderShape.MODEL : RenderShape.INVISIBLE;
+        // Each part has its own slice of the locker visual; all render normally.
+        // (The earlier single-block-tall-model approach failed because vanilla
+        // rejects model elements outside [-16, 32] on any axis. See
+        // assets/lockers/models/block/locker_{bottom,middle,top}.json.)
+        return RenderShape.MODEL;
     }
 
     @Override

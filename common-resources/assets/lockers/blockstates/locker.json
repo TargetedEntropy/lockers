@@ -1,18 +1,18 @@
 {
   "variants": {
-    "facing=north,part=bottom": { "model": "lockers:block/locker" },
-    "facing=south,part=bottom": { "model": "lockers:block/locker", "y": 180 },
-    "facing=east,part=bottom":  { "model": "lockers:block/locker", "y": 90 },
-    "facing=west,part=bottom":  { "model": "lockers:block/locker", "y": 270 },
+    "facing=north,part=bottom": { "model": "lockers:block/locker_bottom" },
+    "facing=south,part=bottom": { "model": "lockers:block/locker_bottom", "y": 180 },
+    "facing=east,part=bottom":  { "model": "lockers:block/locker_bottom", "y": 90 },
+    "facing=west,part=bottom":  { "model": "lockers:block/locker_bottom", "y": 270 },
 
-    "facing=north,part=middle": { "model": "lockers:block/locker_invisible" },
-    "facing=south,part=middle": { "model": "lockers:block/locker_invisible" },
-    "facing=east,part=middle":  { "model": "lockers:block/locker_invisible" },
-    "facing=west,part=middle":  { "model": "lockers:block/locker_invisible" },
+    "facing=north,part=middle": { "model": "lockers:block/locker_middle" },
+    "facing=south,part=middle": { "model": "lockers:block/locker_middle", "y": 180 },
+    "facing=east,part=middle":  { "model": "lockers:block/locker_middle", "y": 90 },
+    "facing=west,part=middle":  { "model": "lockers:block/locker_middle", "y": 270 },
 
-    "facing=north,part=top":    { "model": "lockers:block/locker_invisible" },
-    "facing=south,part=top":    { "model": "lockers:block/locker_invisible" },
-    "facing=east,part=top":     { "model": "lockers:block/locker_invisible" },
-    "facing=west,part=top":     { "model": "lockers:block/locker_invisible" }
+    "facing=north,part=top":    { "model": "lockers:block/locker_top" },
+    "facing=south,part=top":    { "model": "lockers:block/locker_top", "y": 180 },
+    "facing=east,part=top":     { "model": "lockers:block/locker_top", "y": 90 },
+    "facing=west,part=top":     { "model": "lockers:block/locker_top", "y": 270 }
   }
 }
