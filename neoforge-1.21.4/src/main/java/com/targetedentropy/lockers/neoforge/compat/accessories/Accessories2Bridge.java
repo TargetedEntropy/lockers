@@ -21,9 +21,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Accessories 1.2.x (1.21.4) implementation of {@link AccessoryBridge}.
  * <p>
- * The 1.x (1.21.1) and 2.x (1.21.4) Accessories APIs we touch are
- * functionally identical; class kept separate from its sibling to isolate
- * any future divergence.
+ * Functionally identical to the 1.21.1 sibling for the API surface we use;
+ * kept as a separate class to isolate any future divergence.
  * <p>
  * Slot ids encode as {@code accessories:<container-name>/<index>}.
  */
@@ -113,6 +112,25 @@ public final class Accessories2Bridge implements AccessoryBridge<ServerPlayer, I
             }
         }
         return out;
+    }
+
+    @Override
+    public void clear(ServerPlayer player, Set<SlotId> slotIds) {
+        if (slotIds.isEmpty()) return;
+        Optional<AccessoriesCapability> maybe = AccessoriesCapability.getOptionally(player);
+        if (maybe.isEmpty()) return;
+        Map<String, AccessoriesContainer> containers = maybe.get().getContainers();
+        for (SlotId sid : slotIds) {
+            if (!NS.equals(sid.namespace())) continue;
+            ParsedSlot p = parseSlotPath(sid.path());
+            if (p == null) continue;
+            AccessoriesContainer container = containers.get(p.type);
+            if (container == null) continue;
+            ExpandedSimpleContainer accessories = container.getAccessories();
+            if (p.index < 0 || p.index >= accessories.getContainerSize()) continue;
+            accessories.setItem(p.index, ItemStack.EMPTY);
+            container.markChanged();
+        }
     }
 
     private static void returnToPlayerInventory(ServerPlayer player, ItemStack stack) {

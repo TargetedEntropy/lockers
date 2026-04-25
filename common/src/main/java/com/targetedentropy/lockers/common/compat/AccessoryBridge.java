@@ -55,4 +55,16 @@ public interface AccessoryBridge<P, S> {
      * per-dimension / per-config). Used by the GUI to render slot previews.
      */
     Set<SlotId> knownSlots(P player);
+
+    /**
+     * Empty (set to {@code ItemStack.EMPTY}) every slot in {@code slotIds}.
+     * Used by the Locker after a Save captured items off the player — items
+     * physically move into the locker, so the player's slots must be cleared.
+     * <p>
+     * Slot ids in a different namespace, or pointing at slots that don't exist
+     * on this player, are silently ignored. Items in cleared slots are NOT
+     * returned to the player's inventory — the caller already has the saved
+     * snapshot in hand.
+     */
+    void clear(P player, Set<SlotId> slotIds);
 }

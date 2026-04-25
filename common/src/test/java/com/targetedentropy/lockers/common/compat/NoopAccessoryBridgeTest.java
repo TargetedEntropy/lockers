@@ -35,4 +35,11 @@ class NoopAccessoryBridgeTest {
     void knownSlotsEmpty() {
         assertThat(new NoopAccessoryBridge<Object, Object>().knownSlots(new Object())).isEmpty();
     }
+
+    @Test
+    void clearIsNoop() {
+        NoopAccessoryBridge<Object, Object> b = new NoopAccessoryBridge<>();
+        b.clear(new Object(), java.util.Set.of());
+        b.clear(new Object(), java.util.Set.of(SlotId.parse("curios:ring/0")));
+    }
 }

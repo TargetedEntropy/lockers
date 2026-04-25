@@ -81,7 +81,15 @@ public class LockerBlockEntity extends BlockEntity {
 
     // --- loadout operations ----------------------------------------------------
 
-    /** Capture player's current armor + offhand (+ accessories via bridge) into {@code slot}. */
+    /**
+     * MOVE-from-player. Capture armor + offhand + accessories off the player,
+     * write into {@code slot}, then clear the captured slots on the player —
+     * the items physically move into the locker.
+     * <p>
+     * If {@code slot} already held a loadout, those items are returned to the
+     * player's main inventory before the new loadout overwrites (the GUI's
+     * confirm gate ensures this only happens deliberately).
+     */
     public void saveLoadoutFromPlayer(int slot, String rawName, ServerPlayer sp) {
         if (data == null) return;
         String name = sanitizeName(rawName, "Loadout " + (slot + 1));
@@ -101,23 +109,39 @@ public class LockerBlockEntity extends BlockEntity {
 
         Map<SlotId, byte[]> accessories = new LinkedHashMap<>(BridgeRegistry.get().capture(sp));
 
-        // Reject empty saves: nothing equipped, no accessories. Avoids accidental
-        // wipe of an existing loadout when the player meant to load it.
         if (equipment.isEmpty() && accessories.isEmpty()) {
             sp.displayClientMessage(
                     Component.translatable("message.lockers.nothing_to_save"), true);
             return;
         }
 
+        // Slot already populated? Eject its contents to the player's inventory
+        // before overwriting (the confirm UX has already gated this path).
+        data.slot(slot).ifPresent(old -> returnLoadoutToInventory(sp, old, regs));
+
         Loadout lo = new Loadout(name, Instant.now(), equipment, accessories);
         this.data = data.withSlot(slot, lo);
+
+        // MOVE semantics: items now live in the locker, so clear the player's
+        // slots we just captured. Empty the vanilla equipment slots directly,
+        // and let the bridge clear the accessory slots it owns.
+        for (EquipmentSlot eqSlot : equipment.keySet()) {
+            sp.setItemSlot(toMcSlot(eqSlot), ItemStack.EMPTY);
+        }
+        BridgeRegistry.get().clear(sp, accessories.keySet());
+
         setChanged();
         syncTo(sp);
         sp.displayClientMessage(
                 Component.translatable("message.lockers.saved", name), true);
     }
 
-    /** Apply loadout in {@code slot} to the player (swapping in whatever was equipped). */
+    /**
+     * MOVE-to-player. Install the saved loadout's armor + offhand + accessories
+     * onto the player, returning whatever the player was wearing in those slots
+     * to their main inventory. The locker slot is cleared afterwards — items
+     * physically leave the locker, so the slot entry goes empty.
+     */
     public void loadLoadoutToPlayer(int slot, ServerPlayer sp) {
         if (data == null) return;
         Optional<Loadout> maybe = data.slot(slot);
@@ -133,6 +157,10 @@ public class LockerBlockEntity extends BlockEntity {
 
         BridgeRegistry.get().apply(sp, lo.accessories());
 
+        // Loadout has been moved out of the locker; clear the slot.
+        this.data = data.clearSlot(slot);
+        setChanged();
+        syncTo(sp);
         sp.displayClientMessage(
                 Component.translatable("message.lockers.loaded", lo.name()), true);
     }
@@ -243,5 +271,36 @@ public class LockerBlockEntity extends BlockEntity {
             return trimmed.substring(0, Loadout.MAX_NAME_LENGTH);
         }
         return trimmed;
+    }
+
+    /** Map our common-module {@link EquipmentSlot} to vanilla MC's. */
+    private static net.minecraft.world.entity.EquipmentSlot toMcSlot(EquipmentSlot s) {
+        return switch (s) {
+            case HEAD    -> net.minecraft.world.entity.EquipmentSlot.HEAD;
+            case CHEST   -> net.minecraft.world.entity.EquipmentSlot.CHEST;
+            case LEGS    -> net.minecraft.world.entity.EquipmentSlot.LEGS;
+            case FEET    -> net.minecraft.world.entity.EquipmentSlot.FEET;
+            case OFFHAND -> net.minecraft.world.entity.EquipmentSlot.OFFHAND;
+        };
+    }
+
+    /**
+     * Return all items in {@code lo} (both equipment and accessories) to
+     * {@code sp}'s main inventory; drop on the floor if the inventory is full.
+     * Used when Save overwrites a populated slot — old loadout items must
+     * not be silently destroyed.
+     */
+    private static void returnLoadoutToInventory(ServerPlayer sp, Loadout lo, HolderLookup.Provider regs) {
+        for (byte[] bytes : lo.equipment().values()) {
+            addOrDrop(sp, ItemStackSerializer.fromBytes(bytes, regs));
+        }
+        for (byte[] bytes : lo.accessories().values()) {
+            addOrDrop(sp, ItemStackSerializer.fromBytes(bytes, regs));
+        }
+    }
+
+    private static void addOrDrop(ServerPlayer sp, ItemStack stack) {
+        if (stack.isEmpty()) return;
+        if (!sp.getInventory().add(stack)) sp.drop(stack, false);
     }
 }

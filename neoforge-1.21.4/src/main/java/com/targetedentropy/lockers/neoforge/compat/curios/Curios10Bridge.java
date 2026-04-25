@@ -23,9 +23,8 @@ import top.theillusivec4.curios.api.type.inventory.IDynamicStackHandler;
 /**
  * Curios 10.x (1.21.4+) implementation of {@link AccessoryBridge}.
  * <p>
- * Selected at runtime only when Curios is loaded. The 9 and 10 APIs we touch
- * are functionally identical for these operations; class kept separate from
- * its 1.21.1 sibling to isolate any future divergence.
+ * Functionally identical to the 1.21.1 sibling for the API surface we use;
+ * kept as a separate class to isolate any future divergence.
  * <p>
  * Slot ids encode as {@code curios:<type>/<index>}.
  */
@@ -115,6 +114,24 @@ public final class Curios10Bridge implements AccessoryBridge<ServerPlayer, ItemS
             }
         }
         return out;
+    }
+
+    @Override
+    public void clear(ServerPlayer player, Set<SlotId> slotIds) {
+        if (slotIds.isEmpty()) return;
+        Optional<ICuriosItemHandler> maybe = CuriosApi.getCuriosInventory(player);
+        if (maybe.isEmpty()) return;
+        Map<String, ICurioStacksHandler> handlers = maybe.get().getCurios();
+        for (SlotId sid : slotIds) {
+            if (!NS.equals(sid.namespace())) continue;
+            ParsedSlot p = parseSlotPath(sid.path());
+            if (p == null) continue;
+            ICurioStacksHandler handler = handlers.get(p.type);
+            if (handler == null) continue;
+            IDynamicStackHandler dsh = handler.getStacks();
+            if (p.index < 0 || p.index >= dsh.getSlots()) continue;
+            dsh.setStackInSlot(p.index, ItemStack.EMPTY);
+        }
     }
 
     private static void returnToPlayerInventory(ServerPlayer player, ItemStack stack) {

@@ -141,7 +141,7 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - **Don't use `ServiceLoader` for bridge selection.** `ModList.get().isLoaded(...)` is authoritative.
 - **Don't use `--no-verify` on commits.** If a hook fails, fix it.
 
-## What's implemented vs. stubbed (v0.1.0-alpha.2)
+## What's implemented vs. stubbed (v0.1.0-alpha.3)
 
 - ✅ `common` domain model + codec + access policy + bridge selector (99% line, 96% branch coverage)
 - ✅ Multi-module Gradle + MDG 2.0.141 + both per-MC-version modules build clean
@@ -155,7 +155,9 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - ✅ **Rename UX** — `LockerScreen` renders an `EditBox` per row; Enter or focus-out fires `RenameLoadoutPacket`; auto-named "Loadout N" if blank on save.
 - ✅ **GUI wired end-to-end** — `LockerScreen` holds the latest `LockerData` from `SyncLockerPacket`; per-row state (populated vs. empty) drives button enable/disable; in-progress edits aren't clobbered by sync events.
 - ✅ `BlockEntity.data()` returns `Optional<LockerData>`; callers handle empty rather than risking NPE.
-- ✅ **Both vanilla and accessory loads use MERGE** — only slots named in the saved loadout are modified; untouched slots stay equipped. Items in touched slots return to the player's main inventory or drop on the floor.
+- ✅ **MOVE semantics for save/load** (0.1.0-alpha.3) — Save physically takes gear off the player and writes it to the slot; Load installs the saved items on the player and clears the slot. Loadouts are one-shot in this sense: load empties the slot, save again to refill. Replaces the earlier copy-snapshot behavior that allowed item duplication.
+- ✅ **MERGE on apply** — only slots named in the saved loadout are touched on Load; untouched player slots keep their existing gear. Items displaced from touched slots return to the player's main inventory or drop on the floor.
+- ✅ **`AccessoryBridge.clear(player, slotIds)`** — Save uses this to zero accessory slots after capturing items. Caller already has the snapshot in hand, so cleared items are not returned to inventory.
 - ✅ **Save-onto-populated and Delete are confirm-gated** — button label flips to `Confirm?` / `?` for 2 s; second click commits, otherwise reverts.
 - ✅ **Public/Private access toggle** in the GUI, visible only to the owner. `ChangeAccessPacket` validated server-side via `AccessPolicy.canModifyAccess`.
 - ✅ **Empty saves are rejected** ("Nothing to save..." action-bar message).

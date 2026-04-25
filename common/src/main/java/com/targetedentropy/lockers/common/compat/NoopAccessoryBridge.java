@@ -23,4 +23,6 @@ public final class NoopAccessoryBridge<P, S> implements AccessoryBridge<P, S> {
     @Override public void apply(P player, Map<SlotId, byte[]> stacks) { /* intentionally empty */ }
 
     @Override public Set<SlotId> knownSlots(P player) { return Set.of(); }
+
+    @Override public void clear(P player, Set<SlotId> slotIds) { /* intentionally empty */ }
 }

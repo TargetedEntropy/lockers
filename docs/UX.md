@@ -13,7 +13,7 @@ doc have been resolved in the listed direction:
 
 | # | Decision | Status |
 | - | -------- | ------ |
-| 1 | Both vanilla and accessory loadouts use **MERGE** semantics (only saved slots are touched on Load) | ✅ shipped |
+| 1 | Both vanilla and accessory loadouts use **MERGE** semantics (only saved slots are touched on Load) — combined with **MOVE** in 0.1.0-alpha.3 (Save takes gear off the player; Load takes gear out of the slot, slot becomes empty) | ✅ shipped |
 | 2 | Save-onto-populated-slot requires confirm (button flips to "Confirm?" for 2 s) | ✅ shipped |
 | 3 | Delete requires confirm (button flips to "?" for 2 s) | ✅ shipped |
 | 4 | Broken Locker drops a Locker item carrying its saved loadouts via `CUSTOM_DATA`; new placer becomes owner | ✅ shipped |

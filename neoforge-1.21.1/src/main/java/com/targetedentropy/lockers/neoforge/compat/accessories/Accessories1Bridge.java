@@ -117,6 +117,25 @@ public final class Accessories1Bridge implements AccessoryBridge<ServerPlayer, I
         return out;
     }
 
+    @Override
+    public void clear(ServerPlayer player, Set<SlotId> slotIds) {
+        if (slotIds.isEmpty()) return;
+        Optional<AccessoriesCapability> maybe = AccessoriesCapability.getOptionally(player);
+        if (maybe.isEmpty()) return;
+        Map<String, AccessoriesContainer> containers = maybe.get().getContainers();
+        for (SlotId sid : slotIds) {
+            if (!NS.equals(sid.namespace())) continue;
+            ParsedSlot p = parseSlotPath(sid.path());
+            if (p == null) continue;
+            AccessoriesContainer container = containers.get(p.type);
+            if (container == null) continue;
+            ExpandedSimpleContainer accessories = container.getAccessories();
+            if (p.index < 0 || p.index >= accessories.getContainerSize()) continue;
+            accessories.setItem(p.index, ItemStack.EMPTY);
+            container.markChanged();
+        }
+    }
+
     private static void returnToPlayerInventory(ServerPlayer player, ItemStack stack) {
         if (stack.isEmpty()) return;
         if (!player.getInventory().add(stack)) {

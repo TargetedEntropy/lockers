@@ -120,6 +120,24 @@ public final class Curios9Bridge implements AccessoryBridge<ServerPlayer, ItemSt
         return out;
     }
 
+    @Override
+    public void clear(ServerPlayer player, Set<SlotId> slotIds) {
+        if (slotIds.isEmpty()) return;
+        Optional<ICuriosItemHandler> maybe = CuriosApi.getCuriosInventory(player);
+        if (maybe.isEmpty()) return;
+        Map<String, ICurioStacksHandler> handlers = maybe.get().getCurios();
+        for (SlotId sid : slotIds) {
+            if (!NS.equals(sid.namespace())) continue;
+            ParsedSlot p = parseSlotPath(sid.path());
+            if (p == null) continue;
+            ICurioStacksHandler handler = handlers.get(p.type);
+            if (handler == null) continue;
+            IDynamicStackHandler dsh = handler.getStacks();
+            if (p.index < 0 || p.index >= dsh.getSlots()) continue;
+            dsh.setStackInSlot(p.index, ItemStack.EMPTY);
+        }
+    }
+
     private static void returnToPlayerInventory(ServerPlayer player, ItemStack stack) {
         if (stack.isEmpty()) return;
         if (!player.getInventory().add(stack)) {
