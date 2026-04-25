@@ -31,9 +31,13 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class LockerBlock extends BaseEntityBlock {
 
@@ -42,9 +46,30 @@ public class LockerBlock extends BaseEntityBlock {
 
     public static final EnumProperty<Direction> FACING = HorizontalDirectionalBlock.FACING;
 
+    /**
+     * 1×3×1 collision/outline matching the visual model height. The visual
+     * model in {@code common-resources/assets/lockers/models/block/locker.json}
+     * extends from y=0 to y=48 (3 vanilla blocks tall). This shape blocks the
+     * player from walking through the upper "phantom" cells and gives them a
+     * sensible right-click hit target. (NOTE: other blocks can still be placed
+     * in the upper 2 cells, since they are world-empty — turning the locker
+     * into a true multi-block structure is a follow-up.)
+     */
+    private static final VoxelShape LOCKER_SHAPE = Shapes.box(0.0, 0.0, 0.0, 1.0, 3.0, 1.0);
+
     public LockerBlock(Properties props) {
         super(props);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+    }
+
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return LOCKER_SHAPE;
+    }
+
+    @Override
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return LOCKER_SHAPE;
     }
 
     @Override
