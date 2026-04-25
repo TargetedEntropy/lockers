@@ -12,8 +12,14 @@ val parchmentVer: String = providers.gradleProperty("parchment_version_1_21_1").
 val curiosVersion: String = providers.gradleProperty("curios_version_1_21_1").get()
 val accessoriesVersion: String = providers.gradleProperty("accessories_version_1_21_1").get()
 
+// Filename convention matches the rest of the NeoForge mod ecosystem
+// (Curios, Accessories, owo-lib, JEI, …):
+//   <mod-id>-<loader>-<mod-version>+<mc-version>.jar
+// The `+` is semver build-metadata, used to disambiguate jars built from
+// the same mod_version against different MC versions.
+project.version = "$modVersion+$mcVersion"
 base {
-    archivesName.set("$modId-$mcVersion")
+    archivesName.set("$modId-neoforge")
 }
 
 repositories {
