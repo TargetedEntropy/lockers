@@ -100,6 +100,16 @@ dependencies {
     compileOnly("io.wispforest:accessories-neoforge:$accessoriesVersion")
 }
 
+// Merge `common` module's compiled classes + resources into this module's jar.
+// Without this, the published jar references com.targetedentropy.lockers.common.*
+// classes that don't exist on the runtime classpath, and FML fails the mod with
+// NoClassDefFoundError on construction.
+tasks.jar {
+    dependsOn(project(":common").tasks.named("jar"))
+    from(project(":common").sourceSets.main.get().output)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 tasks.processResources {
     val replacements = mapOf(
         "mod_id" to modId,
