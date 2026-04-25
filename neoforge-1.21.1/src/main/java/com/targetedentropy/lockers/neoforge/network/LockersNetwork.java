@@ -26,6 +26,7 @@ public final class LockersNetwork {
         r.playToServer(LoadLoadoutPacket.TYPE,   LoadLoadoutPacket.STREAM_CODEC,   LockerPayloadHandler::handleLoad);
         r.playToServer(RenameLoadoutPacket.TYPE, RenameLoadoutPacket.STREAM_CODEC, LockerPayloadHandler::handleRename);
         r.playToServer(DeleteLoadoutPacket.TYPE, DeleteLoadoutPacket.STREAM_CODEC, LockerPayloadHandler::handleDelete);
+        r.playToServer(ChangeAccessPacket.TYPE,  ChangeAccessPacket.STREAM_CODEC,  LockerPayloadHandler::handleChangeAccess);
 
         r.playToClient(SyncLockerPacket.TYPE,    SyncLockerPacket.STREAM_CODEC,    LockerPayloadHandler::handleSync);
     }

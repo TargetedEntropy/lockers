@@ -84,6 +84,17 @@ public record LockerData(
         return new LockerData(schemaVersion, owner, ownerNameCached, newAccess, slots, createdAt);
     }
 
+    /**
+     * Returns a copy with the owner replaced. Used when a Locker block is
+     * broken and re-placed: the saved loadouts survive (carried via the dropped
+     * item's NBT) but the new placer becomes the owner.
+     */
+    public LockerData withOwner(UUID newOwner, String newOwnerName) {
+        Objects.requireNonNull(newOwner, "newOwner");
+        return new LockerData(schemaVersion, newOwner, Optional.ofNullable(newOwnerName),
+                access, slots, createdAt);
+    }
+
     public Optional<Loadout> slot(int index) {
         requireValidSlotIndex(index);
         return slots.get(index);

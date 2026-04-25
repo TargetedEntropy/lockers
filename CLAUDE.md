@@ -141,7 +141,7 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - **Don't use `ServiceLoader` for bridge selection.** `ModList.get().isLoaded(...)` is authoritative.
 - **Don't use `--no-verify` on commits.** If a hook fails, fix it.
 
-## What's implemented vs. stubbed (v0.1.0-alpha.1)
+## What's implemented vs. stubbed (v0.1.0-alpha.2)
 
 - ✅ `common` domain model + codec + access policy + bridge selector (99% line, 96% branch coverage)
 - ✅ Multi-module Gradle + MDG 2.0.141 + both per-MC-version modules build clean
@@ -155,6 +155,11 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - ✅ **Rename UX** — `LockerScreen` renders an `EditBox` per row; Enter or focus-out fires `RenameLoadoutPacket`; auto-named "Loadout N" if blank on save.
 - ✅ **GUI wired end-to-end** — `LockerScreen` holds the latest `LockerData` from `SyncLockerPacket`; per-row state (populated vs. empty) drives button enable/disable; in-progress edits aren't clobbered by sync events.
 - ✅ `BlockEntity.data()` returns `Optional<LockerData>`; callers handle empty rather than risking NPE.
+- ✅ **Both vanilla and accessory loads use MERGE** — only slots named in the saved loadout are modified; untouched slots stay equipped. Items in touched slots return to the player's main inventory or drop on the floor.
+- ✅ **Save-onto-populated and Delete are confirm-gated** — button label flips to `Confirm?` / `?` for 2 s; second click commits, otherwise reverts.
+- ✅ **Public/Private access toggle** in the GUI, visible only to the owner. `ChangeAccessPacket` validated server-side via `AccessPolicy.canModifyAccess`.
+- ✅ **Empty saves are rejected** ("Nothing to save..." action-bar message).
+- ✅ **Locker carries loadouts through break + replace** via `DataComponents.CUSTOM_DATA` under key `lockers:saved_locker_data`. New placer becomes owner; saved slots survive. Middle-click pick-block also copies the data on creative.
 - ⚠️ **DataGen is not active.** Recipes, models, loot, and blockstates live as static JSON under `common-resources/`. If the set grows, wire `GatherDataEvent` in each module and delete the static copies.
 - ⚠️ **GUI textures not authored.** `LockerScreen` draws a plain dark rectangle — `textures/gui/locker.png` is referenced but not shipped; the plain fill fallback is acceptable for alpha.
 - ⚠️ **GameTest job remains gated** (`if: false`). The `LockerPlacementGameTest` exists and compiles, but it expects a `lockers:empty_3x3` structure NBT under `data/lockers/structures/` that has not been authored. Without the structure file, the CI job won't run successfully — leaving it gated until someone with a hands-on session can author the binary `.nbt` (or correct-format `.snbt`) and verify it loads on both 1.21.1 and 1.21.4.

@@ -1,12 +1,26 @@
 # Lockers — UX reference
 
-Snapshot of the user-facing behavior in **v0.1.0-alpha.1**. Use this doc to
-review what the mod actually does, identify gaps, and lock down decisions
-before the alpha ships to CurseForge.
+Snapshot of the user-facing behavior. Use this doc to review what the mod
+actually does, identify gaps, and lock down decisions before each release
+to CurseForge.
 
-The diagrams below render on GitHub (Mermaid + ASCII). Open questions for
-the maintainer are flagged with **🚩** at the bottom — those are the spots
-where the current code makes a judgment call you may want to reverse.
+The diagrams below render on GitHub (Mermaid + ASCII).
+
+## Decisions locked in v0.1.0-alpha.2
+
+The 🚩 questions originally flagged in the v0.1.0-alpha.1 version of this
+doc have been resolved in the listed direction:
+
+| # | Decision | Status |
+| - | -------- | ------ |
+| 1 | Both vanilla and accessory loadouts use **MERGE** semantics (only saved slots are touched on Load) | ✅ shipped |
+| 2 | Save-onto-populated-slot requires confirm (button flips to "Confirm?" for 2 s) | ✅ shipped |
+| 3 | Delete requires confirm (button flips to "?" for 2 s) | ✅ shipped |
+| 4 | Broken Locker drops a Locker item carrying its saved loadouts via `CUSTOM_DATA`; new placer becomes owner | ✅ shipped |
+| 5 | Concurrent viewers — status quo (only the mutating player gets a fresh sync) | accepted |
+| 6 | Public/Private toggle in the GUI, owner-only | ✅ shipped |
+| 7 | Empty saves are rejected with "Nothing to save..." action-bar message | ✅ shipped |
+| 8 | NBT size — status quo (no cap) | accepted |
 
 ---
 

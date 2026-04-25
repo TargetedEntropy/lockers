@@ -36,6 +36,25 @@ public final class LockerPayloadHandler {
                 be.deleteLoadout(pkt.slot(), sp));
     }
 
+    /**
+     * Owner-only mutation — re-validated server-side via {@code AccessPolicy.canModifyAccess}
+     * inside {@link LockerBlockEntity#changeAccess}. The {@link #withServerBlockEntity} guard
+     * is intentionally not used here because that runs {@code canAccess} (read-only), which
+     * permits PUBLIC viewers; modifying access requires the stricter check.
+     */
+    public static void handleChangeAccess(
+            com.targetedentropy.lockers.neoforge.network.ChangeAccessPacket pkt,
+            IPayloadContext ctx) {
+        if (!(ctx.player() instanceof ServerPlayer sp)) return;
+        BlockEntity raw = sp.level().getBlockEntity(pkt.pos());
+        if (!(raw instanceof LockerBlockEntity be)) {
+            ctx.disconnect(net.minecraft.network.chat.Component.literal(
+                    "Locker block entity missing at " + pkt.pos()));
+            return;
+        }
+        be.changeAccess(pkt.access(), sp);
+    }
+
     /** Client-side: cache the latest LockerData on the open screen (if any). */
     public static void handleSync(SyncLockerPacket pkt, IPayloadContext ctx) {
         Minecraft mc = Minecraft.getInstance();

@@ -21,12 +21,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Accessories 1.2.x (1.21.4) implementation of {@link AccessoryBridge}.
  * <p>
- * The Accessories 1.x (1.21.1) and 2.x (1.21.4) public APIs we touch are
- * functionally identical for these operations
- * ({@code AccessoriesCapability.getOptionally},
- * {@code AccessoriesContainer.getAccessories} → {@code ExpandedSimpleContainer}).
- * Class kept separate from {@code Accessories1Bridge} to isolate any future
- * divergence.
+ * The 1.x (1.21.1) and 2.x (1.21.4) Accessories APIs we touch are
+ * functionally identical; class kept separate from its sibling to isolate
+ * any future divergence.
  * <p>
  * Slot ids encode as {@code accessories:<container-name>/<index>}.
  */
@@ -76,22 +73,10 @@ public final class Accessories2Bridge implements AccessoryBridge<ServerPlayer, I
         HolderLookup.Provider regs = player.level().registryAccess();
         Map<String, AccessoriesContainer> containers = maybe.get().getContainers();
 
-        // First pass: clear current accessory slots, returning items to inventory
-        // so we never silently delete equipped gear.
-        for (AccessoriesContainer c : containers.values()) {
-            ExpandedSimpleContainer accessories = c.getAccessories();
-            int size = accessories.getContainerSize();
-            for (int i = 0; i < size; i++) {
-                ItemStack old = accessories.getItem(i);
-                if (old.isEmpty()) continue;
-                accessories.setItem(i, ItemStack.EMPTY);
-                returnToPlayerInventory(player, old);
-            }
-            c.markChanged();
-        }
-
-        // Second pass: install saved stacks. Unknown container types or out-of-range
-        // indices return their item to the player's main inventory.
+        // MERGE semantics: only modify slots named in the saved loadout. Slots
+        // the loadout doesn't mention are left untouched. Items in touched
+        // slots are returned to the player's main inventory (or dropped if
+        // it's full) so equipped gear is never silently deleted.
         for (Map.Entry<SlotId, byte[]> e : stacks.entrySet()) {
             SlotId sid = e.getKey();
             if (!NS.equals(sid.namespace())) continue;
@@ -99,16 +84,19 @@ public final class Accessories2Bridge implements AccessoryBridge<ServerPlayer, I
             if (p == null) continue;
 
             AccessoriesContainer container = containers.get(p.type);
+            ItemStack newStack = ItemStackSerializer.fromBytes(e.getValue(), regs);
             if (container == null) {
-                returnToPlayerInventory(player, ItemStackSerializer.fromBytes(e.getValue(), regs));
+                returnToPlayerInventory(player, newStack);
                 continue;
             }
             ExpandedSimpleContainer accessories = container.getAccessories();
             if (p.index < 0 || p.index >= accessories.getContainerSize()) {
-                returnToPlayerInventory(player, ItemStackSerializer.fromBytes(e.getValue(), regs));
+                returnToPlayerInventory(player, newStack);
                 continue;
             }
-            accessories.setItem(p.index, ItemStackSerializer.fromBytes(e.getValue(), regs));
+            ItemStack old = accessories.getItem(p.index);
+            accessories.setItem(p.index, newStack);
+            if (!old.isEmpty()) returnToPlayerInventory(player, old);
             container.markChanged();
         }
     }

@@ -6,10 +6,14 @@
 
   "gui.lockers.save": "Save",
   "gui.lockers.load": "Load",
+  "gui.lockers.confirm": "Confirm?",
   "gui.lockers.empty_slot": "Empty",
   "gui.lockers.name_field": "Loadout name",
+  "gui.lockers.access.public": "Public",
+  "gui.lockers.access.private": "Private",
 
   "message.lockers.not_owner": "This locker belongs to someone else.",
   "message.lockers.saved": "Saved loadout '%s'.",
-  "message.lockers.loaded": "Loaded loadout '%s'."
+  "message.lockers.loaded": "Loaded loadout '%s'.",
+  "message.lockers.nothing_to_save": "Nothing to save — you have no armor or accessories equipped."
 }

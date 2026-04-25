@@ -23,12 +23,9 @@ import top.theillusivec4.curios.api.type.inventory.IDynamicStackHandler;
 /**
  * Curios 10.x (1.21.4+) implementation of {@link AccessoryBridge}.
  * <p>
- * The 9.x and 10.x public APIs we touch — {@code CuriosApi.getCuriosInventory},
- * {@code ICuriosItemHandler.getCurios}, {@code IDynamicStackHandler} — are
- * functionally identical for these operations, so this class is structurally
- * a copy of {@code Curios9Bridge} in the 1.21.1 sibling module. They are
- * kept separate to isolate any future divergence (e.g. capability registration
- * differences, NBT helper signatures).
+ * Selected at runtime only when Curios is loaded. The 9 and 10 APIs we touch
+ * are functionally identical for these operations; class kept separate from
+ * its 1.21.1 sibling to isolate any future divergence.
  * <p>
  * Slot ids encode as {@code curios:<type>/<index>}.
  */
@@ -77,20 +74,10 @@ public final class Curios10Bridge implements AccessoryBridge<ServerPlayer, ItemS
         HolderLookup.Provider regs = player.level().registryAccess();
         Map<String, ICurioStacksHandler> handlers = maybe.get().getCurios();
 
-        // First pass: clear out current slots — the saved loadout is authoritative.
-        // Items previously equipped get returned to the player's main inventory
-        // (or dropped if it's full) so we never silently delete gear.
-        for (ICurioStacksHandler h : handlers.values()) {
-            IDynamicStackHandler s = h.getStacks();
-            for (int i = 0; i < s.getSlots(); i++) {
-                ItemStack old = s.getStackInSlot(i);
-                if (old.isEmpty()) continue;
-                s.setStackInSlot(i, ItemStack.EMPTY);
-                returnToPlayerInventory(player, old);
-            }
-        }
-
-        // Second pass: install the saved stacks into matching slots.
+        // MERGE semantics: only modify slots named in the saved loadout.
+        // Slots the loadout doesn't mention are left untouched. Whatever was
+        // previously in a touched slot gets returned to the player's main
+        // inventory (or dropped if full) so we never silently delete gear.
         for (Map.Entry<SlotId, byte[]> e : stacks.entrySet()) {
             SlotId sid = e.getKey();
             if (!NS.equals(sid.namespace())) continue;
@@ -98,17 +85,20 @@ public final class Curios10Bridge implements AccessoryBridge<ServerPlayer, ItemS
             if (p == null) continue;
 
             ICurioStacksHandler handler = handlers.get(p.type);
+            ItemStack newStack = ItemStackSerializer.fromBytes(e.getValue(), regs);
             if (handler == null) {
-                // Slot type unknown to this player (e.g. dimension-restricted) — return the item.
-                returnToPlayerInventory(player, ItemStackSerializer.fromBytes(e.getValue(), regs));
+                // Slot type unknown to this player (e.g. dimension-restricted).
+                returnToPlayerInventory(player, newStack);
                 continue;
             }
             IDynamicStackHandler dsh = handler.getStacks();
             if (p.index < 0 || p.index >= dsh.getSlots()) {
-                returnToPlayerInventory(player, ItemStackSerializer.fromBytes(e.getValue(), regs));
+                returnToPlayerInventory(player, newStack);
                 continue;
             }
-            dsh.setStackInSlot(p.index, ItemStackSerializer.fromBytes(e.getValue(), regs));
+            ItemStack old = dsh.getStackInSlot(p.index);
+            dsh.setStackInSlot(p.index, newStack);
+            if (!old.isEmpty()) returnToPlayerInventory(player, old);
         }
     }
 

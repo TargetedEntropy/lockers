@@ -62,6 +62,37 @@ class LockerDataTest {
     }
 
     @Test
+    void withOwnerReplacesOwnerAndName() {
+        UUID newOwner = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        LockerData a = LockerData.fresh(OWNER, "alice", T0)
+                .withSlot(2, Loadout.empty("pvp", T0));
+        LockerData b = a.withOwner(newOwner, "bob");
+
+        assertThat(b.owner()).isEqualTo(newOwner);
+        assertThat(b.ownerNameCached()).contains("bob");
+        // Other state (slots, access, createdAt) preserved
+        assertThat(b.slot(2)).isPresent();
+        assertThat(b.access()).isEqualTo(a.access());
+        assertThat(b.createdAt()).isEqualTo(a.createdAt());
+        // Original immutable
+        assertThat(a.owner()).isEqualTo(OWNER);
+    }
+
+    @Test
+    void withOwnerAcceptsNullName() {
+        LockerData a = LockerData.fresh(OWNER, "alice", T0);
+        LockerData b = a.withOwner(UUID.randomUUID(), null);
+        assertThat(b.ownerNameCached()).isEmpty();
+    }
+
+    @Test
+    void withOwnerRejectsNullUuid() {
+        LockerData a = LockerData.fresh(OWNER, "alice", T0);
+        assertThatThrownBy(() -> a.withOwner(null, "bob"))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
     void withAccessChangesAccessControl() {
         LockerData a = LockerData.fresh(OWNER, null, T0);
         LockerData b = a.withAccess(AccessControl.PUBLIC);

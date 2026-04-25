@@ -101,6 +101,14 @@ public class LockerBlockEntity extends BlockEntity {
 
         Map<SlotId, byte[]> accessories = new LinkedHashMap<>(BridgeRegistry.get().capture(sp));
 
+        // Reject empty saves: nothing equipped, no accessories. Avoids accidental
+        // wipe of an existing loadout when the player meant to load it.
+        if (equipment.isEmpty() && accessories.isEmpty()) {
+            sp.displayClientMessage(
+                    Component.translatable("message.lockers.nothing_to_save"), true);
+            return;
+        }
+
         Loadout lo = new Loadout(name, Instant.now(), equipment, accessories);
         this.data = data.withSlot(slot, lo);
         setChanged();
@@ -143,6 +151,24 @@ public class LockerBlockEntity extends BlockEntity {
         if (data == null) return;
         if (data.slot(slot).isEmpty()) return;
         this.data = data.clearSlot(slot);
+        setChanged();
+        syncTo(sp);
+    }
+
+    /**
+     * Owner-only access-control toggle. Validated against
+     * {@link AccessPolicy#canModifyAccess} which restricts to the owner (or
+     * ops with {@code opsBypassOwnership}); silently dropped otherwise.
+     */
+    public void changeAccess(com.targetedentropy.lockers.common.model.AccessControl newAccess,
+                             ServerPlayer sp) {
+        if (data == null) return;
+        boolean isOp = sp.hasPermissions(2);
+        if (!AccessPolicy.canModifyAccess(sp.getUUID(), isOp, data, CommonConfig.defaults())
+                .allowed()) {
+            return;  // silently drop — never leak that the locker exists
+        }
+        this.data = data.withAccess(newAccess);
         setChanged();
         syncTo(sp);
     }
