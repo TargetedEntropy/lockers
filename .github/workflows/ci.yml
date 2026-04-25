@@ -24,7 +24,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew :common:check
       - name: Upload JaCoCo report
         if: always()
@@ -56,7 +56,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build
         run: ./gradlew :neoforge-${{ matrix.mc_version }}:build
       - name: Upload jar
@@ -83,6 +83,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Run GameTest server
         run: ./gradlew :neoforge-${{ matrix.mc_version }}:runGameTestServer
