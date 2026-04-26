@@ -94,6 +94,16 @@ jobs:
         with:
           name: jars-${{ matrix.mc_version }}
           path: dist
+      - name: Drop sources jars before publish
+        # CurseForge rejected the v0.2.0-alpha.1 upload because the sources
+        # jar (only .java files) was treated as a primary file alongside the
+        # real mod jar. Sources belong on GitHub Releases, not on CurseForge
+        # / Modrinth — strip them out before mc-publish runs.
+        run: |
+          ls -la dist/
+          rm -f dist/*-sources.jar
+          echo "after sources removal:"
+          ls -la dist/
       # Publishes to whichever platforms have secrets/vars configured.
       # Missing CURSEFORGE_TOKEN / MODRINTH_TOKEN cause the action to skip
       # that platform silently rather than fail the whole job.

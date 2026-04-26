@@ -4,6 +4,22 @@ All notable changes to Lockers will be documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0-alpha.2] — 2026-04-26
+
+Re-release of alpha.1 to fix the CurseForge upload pipeline.
+
+### Fixed
+
+- **CurseForge / Modrinth upload no longer ships the sources jar as a
+  primary file.** The `lockers-neoforge-<ver>+<mc>-sources.jar` was being
+  uploaded alongside the real mod jar; CurseForge correctly rejected it
+  ("File is not compatible with client since it includes only `.java`
+  files"). The release workflow now strips `*-sources.jar` from the
+  dist directory before the `mc-publish` step. Sources jars continue to
+  be attached to the GitHub Release for anyone who wants them.
+
+No code changes since alpha.1.
+
 ## [0.2.0-alpha.1] — 2026-04-26
 
 Adds support for **Minecraft 26.1.2** (the version where Mojang dropped the
@@ -123,5 +139,6 @@ place a Locker, stash your kit, swap between up to 6 saved loadouts.
 - GameTest CI job is wired up but disabled (`if: false`); the structure NBT
   template hasn't been verified in a runtime GameTest server pass.
 
+[0.2.0-alpha.2]: https://github.com/targetedentropy/lockers/releases/tag/v0.2.0-alpha.2
 [0.2.0-alpha.1]: https://github.com/targetedentropy/lockers/releases/tag/v0.2.0-alpha.1
 [0.1.0]: https://github.com/targetedentropy/lockers/releases/tag/v0.1.0
