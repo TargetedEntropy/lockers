@@ -69,6 +69,22 @@ jobs:
           merge-multiple: true
       - name: List artifacts
         run: find dist -type f
+      - name: Extract this version's changelog section
+        # Pulls "## [<mod_version>] ..." from CHANGELOG.md into RELEASE_NOTES.md;
+        # falls back to a 1-line placeholder if the version isn't documented.
+        run: |
+          MOD_VERSION='${{ needs.build.outputs.mod_version }}'
+          awk -v marker="## [$MOD_VERSION]" '
+            in_section && /^## \[/ { exit }
+            index($0, marker) == 1 { in_section = 1 }
+            in_section { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            printf '## %s\n\nAutomated release. See [CHANGELOG.md](https://github.com/%s/blob/main/CHANGELOG.md) for full notes.\n' \
+              "$MOD_VERSION" "${{ github.repository }}" > RELEASE_NOTES.md
+          fi
+          echo "--- RELEASE_NOTES.md ---"
+          cat RELEASE_NOTES.md
       - name: Create Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -76,7 +92,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           gh release create "$TAG" \
             --title "$TAG" \
-            --notes "Automated release. See CHANGELOG.md for details." \
+            --notes-file RELEASE_NOTES.md \
             dist/*.jar
 
   publish:
@@ -104,6 +120,21 @@ jobs:
           rm -f dist/*-sources.jar
           echo "after sources removal:"
           ls -la dist/
+      - name: Extract this version's changelog section
+        # Same logic as the github-release job — extract "## [<mod_version>]"
+        # from CHANGELOG.md into RELEASE_NOTES.md, with a 1-line fallback if
+        # the version isn't documented yet.
+        run: |
+          MOD_VERSION='${{ needs.build.outputs.mod_version }}'
+          awk -v marker="## [$MOD_VERSION]" '
+            in_section && /^## \[/ { exit }
+            index($0, marker) == 1 { in_section = 1 }
+            in_section { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            printf 'Automated release. See https://github.com/%s/blob/main/CHANGELOG.md for full notes.\n' \
+              '${{ github.repository }}' > RELEASE_NOTES.md
+          fi
       # Publishes to whichever platforms have secrets/vars configured.
       # Missing CURSEFORGE_TOKEN / MODRINTH_TOKEN cause the action to skip
       # that platform silently rather than fail the whole job.
@@ -120,3 +151,4 @@ jobs:
           version-type: release
           loaders: neoforge
           game-versions: ${{ matrix.mc_version }}
+          changelog-file: RELEASE_NOTES.md
