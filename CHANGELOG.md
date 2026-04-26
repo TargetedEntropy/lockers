@@ -6,78 +6,36 @@ All notable changes to Lockers will be documented here. Format follows
 
 ## [0.2.0-alpha.2] — 2026-04-26
 
-Re-release of alpha.1 to fix the CurseForge upload pipeline.
-
 ### Fixed
 
-- **CurseForge / Modrinth upload no longer ships the sources jar as a
-  primary file.** The `lockers-neoforge-<ver>+<mc>-sources.jar` was being
-  uploaded alongside the real mod jar; CurseForge correctly rejected it
-  ("File is not compatible with client since it includes only `.java`
-  files"). The release workflow now strips `*-sources.jar` from the
-  dist directory before the `mc-publish` step. Sources jars continue to
-  be attached to the GitHub Release for anyone who wants them.
-
-No code changes since alpha.1.
+- Fixed a packaging bug that caused the v0.2.0-alpha.1 file to be rejected
+  on CurseForge. The mod itself is unchanged — if you already have alpha.1
+  installed locally, you don't need to update.
 
 ## [0.2.0-alpha.1] — 2026-04-26
 
-Adds support for **Minecraft 26.1.2** (the version where Mojang dropped the
-`1.` prefix from the public version string and reset the major-version
-counter). This is an **alpha** release — the underlying NeoForge, Curios,
-and tooling for this MC line are themselves all in beta. The 1.21.1 and
-1.21.4 lines from v0.1.0 continue to be supported and ship at parity.
+Adds **Minecraft 26.1.2** support. The 1.21.1 and 1.21.4 builds from v0.1.0
+continue to be supported and ship at parity.
 
-### Added
+### Heads up — alpha quality on 26.1.2
 
-- **New module `neoforge-26.1.2`** — produces `lockers-neoforge-0.2.0-alpha.1+26.1.2.jar`.
-  Built against NeoForge `26.1.2.29-beta`, Java 25, Curios `15.0.0-beta.2+26.1.2`.
-- The CI build matrix and Release workflow now run all three MC lines
-  (1.21.1 / 1.21.4 / 26.1.2) on every PR and tag.
+Mojang reset Minecraft's version numbering with 26.1.2 (no more `1.` prefix),
+and most of the modding ecosystem is still catching up. In this release on
+the 26.1.2 line:
 
-### Limitations on 26.1.2 (will be addressed before 0.2.0 final)
+- **The Locker GUI is a placeholder.** The window opens blank — Mojang
+  rewrote the rendering pipeline and a follow-up release will catch up. You
+  can still place a Locker, and saved loadouts persist correctly across
+  world reloads, but you can't currently interact with them through the UI.
+- **Accessories support is disabled** — Wisp Forest's library doesn't have
+  a 26.1.2 build yet. Curios works.
+- **For the fully-polished experience, stay on Minecraft 1.21.1 or 1.21.4.**
+  Those builds are at v0.1.0 parity with full GUI, Curios, and Accessories.
 
-- **GUI is stubbed.** Mojang's 26.1.2 client replaced `GuiGraphics` with a
-  new extract-then-render pipeline (`GuiGraphicsExtractor`), and made
-  `imageWidth` / `imageHeight` final. Porting `LockerScreen` is a deeper
-  rewrite than a signature swap. The Locker block opens a blank container
-  screen on 26.1.2 — server-side block placement, NBT persistence, and
-  Curios capture/apply still work end-to-end (test via console commands or
-  by attaching to the BE programmatically).
-- **Accessories integration is omitted.** Wisp Forest hasn't published a
-  `+26.1.2` Accessories build yet. The mod loads fine without it; the
-  bridge falls through to `NoopAccessoryBridge`.
-- **Parchment mappings unavailable.** The new module compiles against
-  MojMaps only — variable names in stack traces will be obfuscated until
-  ParchmentMC publishes `parchment-26.1.2`.
-- **No GameTest** (the framework's API moved between 1.21.4 → 26.1.2;
-  smoke test deleted from the new module).
+### What's working on all three MC lines (1.21.1 / 1.21.4 / 26.1.2)
 
-### Confirmed vanilla API breaks (for anyone porting other mods)
-
-- `net.minecraft.resources.ResourceLocation` → `net.minecraft.resources.Identifier`
-- `BlockEntity.saveAdditional(CompoundTag, HolderLookup.Provider)` →
-  `saveAdditional(ValueOutput)`. Same for `loadAdditional` → `ValueInput`.
-- `ItemStack.save(Provider)` / `parseOptional(Provider, CompoundTag)` removed;
-  use `ItemStack.CODEC` with `RegistryOps`.
-- Authlib 7.x: `GameProfile.getName()` → `name()` (record).
-- `Player.hasPermissions(int)` → `Player.permissions().hasPermission(Permission)`.
-  (Vanilla level 2 ≈ `Permissions.COMMANDS_GAMEMASTER`.)
-- `displayClientMessage(component, true)` → `sendOverlayMessage(component)`.
-- `CompoundTag.getAllKeys()` → `keySet()`. Primitive NBT classes
-  (`StringTag`, `IntTag`, `LongTag`) are records; `getAsString/getAsInt/getAsLong`
-  → `value()`.
-- `CompoundTag.getCompound(String)` returns `Optional<CompoundTag>`.
-- `DeferredRegister.Items.registerSimpleBlockItem(Holder<Block>, Item.Properties)` →
-  `(Holder<Block>, Supplier<Item.Properties>)`.
-- `AbstractContainerScreen` constructor now takes width + height (5-arg
-  form); `imageWidth` / `imageHeight` final.
-- `Screen.keyPressed(int, int, int)` → `keyPressed(KeyEvent)`.
-  `mouseClicked(double, double, int)` → `mouseClicked(MouseButtonEvent)`.
-  `AbstractContainerScreen.mouseClicked(MouseButtonEvent, boolean)` (extra
-  consumed flag).
-- `GuiGraphics` removed; replaced by `GuiGraphicsExtractor` (extract-then-render).
-- `Level.isClientSide` field is private; use `Level.isClientSide()` method.
+- Place a Locker, owner stamping, persistence across world reload
+- The block carries its saved loadouts when broken and replaced (just like in v0.1.0)
 
 ## [0.1.0] — 2026-04-26
 
@@ -86,58 +44,37 @@ place a Locker, stash your kit, swap between up to 6 saved loadouts.
 
 ### Added
 
-- **Locker block.** A 3-block-tall multiblock structure (BOTTOM / MIDDLE / TOP)
-  with custom front, side, and top textures by Calmingstorm. Crafts from
-  8 iron ingots + 1 diamond.
-- **6 named loadout slots per Locker.** Per-slot rename via an in-GUI text
-  field; defaults to "Loadout *N*" if you don't type one.
-- **Save** physically takes your armor + offhand off and stashes them in the
-  selected slot. Overwriting a populated slot ejects the old contents to your
-  main inventory and requires a "Confirm?" click.
-- **Load** physically removes the saved gear from the slot and equips it on
-  you; whatever you were wearing in those slots returns to your main
-  inventory (or drops on the floor if it's full — never silently deleted).
-  The slot becomes empty after Load.
-- **Delete** clears a slot. Two-click confirm (X → ?) to prevent misclicks.
-- **Curios API integration.** Full save / restore of every Curios accessory
-  slot. Slot ids map cleanly through the Locker's storage so a saved Curios
-  slot survives world reloads. Compatible with Curios 9.x on Minecraft 1.21.1
-  and Curios 10.x on 1.21.4 — the 9→10 API break is handled by per-version
-  bridge classes.
-- **Wisp Forest Accessories integration.** Same coverage as Curios; the mod
-  picks one when both are installed (default: Curios; configurable via the
-  `preferred_accessory_impl` option).
-- **Accessory partial-merge semantics.** Saving captures every equipped
-  accessory; loading only touches the slots the saved loadout actually
-  named, leaving the rest of your equipped accessories alone.
-- **Owner-only access by default.** The player who places the Locker is the
-  owner. Non-owners get "This locker belongs to someone else." in their
-  action bar and cannot open the GUI. Owners get a `Public` / `Private`
-  toggle in the GUI top-right; flipping it lets anyone use the Locker
-  (handy for shared base lockers on SMP servers).
-- **Loadouts survive break + replace.** Break a Locker with a pickaxe and
-  the dropped item carries every saved loadout via vanilla
-  `minecraft:custom_data`. Place it again and the new placer becomes the
-  owner — saved gear stays.
-- **Server config:** `default_access` (`OWNER_ONLY` / `PUBLIC`),
-  `ops_bypass_ownership` (boolean, default true), and
-  `preferred_accessory_impl` (`AUTO` / `CURIOS` / `ACCESSORIES` / `NONE`).
+- **Locker block.** A 3-block-tall multiblock with custom front, side, and
+  top textures by Calmingstorm. Crafts from 8 iron ingots + 1 diamond.
+- **6 named loadout slots per Locker.** Type a name into each row in the
+  GUI; defaults to "Loadout *N*" if you skip it.
+- **Save** physically takes your armor and offhand off and stashes them in
+  the selected slot. Overwriting a populated slot ejects the old contents
+  to your inventory and requires a "Confirm?" click so you don't lose gear
+  by accident.
+- **Load** equips the saved gear; whatever you were wearing in those slots
+  returns to your inventory (or drops on the floor if it's full — never
+  silently deleted).
+- **Delete** clears a slot. Two-click confirm so misclicks don't wipe a kit.
+- **Curios + Accessories integration.** Saves and restores every accessory
+  slot the same way it does armor and offhand. Auto-detects which library
+  is installed; if both are, picks Curios by default. Server config option
+  `preferred_accessory_impl` overrides.
+- **Owner-only by default.** Other players see "This locker belongs to
+  someone else." in the action bar and can't open the GUI. Owners can
+  toggle a Locker public from the top-right of the GUI for shared bases on
+  multiplayer servers.
+- **Loadouts survive when the Locker is broken.** Pick the dropped item up,
+  place it again somewhere else — your saved loadouts come along. Whoever
+  places it becomes the new owner.
 
 ### Supported
 
 - Minecraft **1.21.1** on NeoForge 21.1.228+
 - Minecraft **1.21.4** on NeoForge 21.4.157+
-- Curios (optional, both versions)
-- Accessories (optional, both versions)
+- Curios (optional)
+- Wisp Forest Accessories (optional)
 - Java 21+
-
-### Known limitations
-
-- Inventory icon shows the bottom slice of the locker. Stacked-icon polish
-  is targeted for a follow-up.
-- GUI uses a plain dark panel — no custom GUI texture is authored yet.
-- GameTest CI job is wired up but disabled (`if: false`); the structure NBT
-  template hasn't been verified in a runtime GameTest server pass.
 
 [0.2.0-alpha.2]: https://github.com/targetedentropy/lockers/releases/tag/v0.2.0-alpha.2
 [0.2.0-alpha.1]: https://github.com/targetedentropy/lockers/releases/tag/v0.2.0-alpha.1
