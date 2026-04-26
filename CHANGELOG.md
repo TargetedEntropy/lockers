@@ -4,6 +4,65 @@ All notable changes to Lockers will be documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0-alpha.1] — 2026-04-26
+
+Adds support for **Minecraft 26.1.2** (the version where Mojang dropped the
+`1.` prefix from the public version string and reset the major-version
+counter). This is an **alpha** release — the underlying NeoForge, Curios,
+and tooling for this MC line are themselves all in beta. The 1.21.1 and
+1.21.4 lines from v0.1.0 continue to be supported and ship at parity.
+
+### Added
+
+- **New module `neoforge-26.1.2`** — produces `lockers-neoforge-0.2.0-alpha.1+26.1.2.jar`.
+  Built against NeoForge `26.1.2.29-beta`, Java 25, Curios `15.0.0-beta.2+26.1.2`.
+- The CI build matrix and Release workflow now run all three MC lines
+  (1.21.1 / 1.21.4 / 26.1.2) on every PR and tag.
+
+### Limitations on 26.1.2 (will be addressed before 0.2.0 final)
+
+- **GUI is stubbed.** Mojang's 26.1.2 client replaced `GuiGraphics` with a
+  new extract-then-render pipeline (`GuiGraphicsExtractor`), and made
+  `imageWidth` / `imageHeight` final. Porting `LockerScreen` is a deeper
+  rewrite than a signature swap. The Locker block opens a blank container
+  screen on 26.1.2 — server-side block placement, NBT persistence, and
+  Curios capture/apply still work end-to-end (test via console commands or
+  by attaching to the BE programmatically).
+- **Accessories integration is omitted.** Wisp Forest hasn't published a
+  `+26.1.2` Accessories build yet. The mod loads fine without it; the
+  bridge falls through to `NoopAccessoryBridge`.
+- **Parchment mappings unavailable.** The new module compiles against
+  MojMaps only — variable names in stack traces will be obfuscated until
+  ParchmentMC publishes `parchment-26.1.2`.
+- **No GameTest** (the framework's API moved between 1.21.4 → 26.1.2;
+  smoke test deleted from the new module).
+
+### Confirmed vanilla API breaks (for anyone porting other mods)
+
+- `net.minecraft.resources.ResourceLocation` → `net.minecraft.resources.Identifier`
+- `BlockEntity.saveAdditional(CompoundTag, HolderLookup.Provider)` →
+  `saveAdditional(ValueOutput)`. Same for `loadAdditional` → `ValueInput`.
+- `ItemStack.save(Provider)` / `parseOptional(Provider, CompoundTag)` removed;
+  use `ItemStack.CODEC` with `RegistryOps`.
+- Authlib 7.x: `GameProfile.getName()` → `name()` (record).
+- `Player.hasPermissions(int)` → `Player.permissions().hasPermission(Permission)`.
+  (Vanilla level 2 ≈ `Permissions.COMMANDS_GAMEMASTER`.)
+- `displayClientMessage(component, true)` → `sendOverlayMessage(component)`.
+- `CompoundTag.getAllKeys()` → `keySet()`. Primitive NBT classes
+  (`StringTag`, `IntTag`, `LongTag`) are records; `getAsString/getAsInt/getAsLong`
+  → `value()`.
+- `CompoundTag.getCompound(String)` returns `Optional<CompoundTag>`.
+- `DeferredRegister.Items.registerSimpleBlockItem(Holder<Block>, Item.Properties)` →
+  `(Holder<Block>, Supplier<Item.Properties>)`.
+- `AbstractContainerScreen` constructor now takes width + height (5-arg
+  form); `imageWidth` / `imageHeight` final.
+- `Screen.keyPressed(int, int, int)` → `keyPressed(KeyEvent)`.
+  `mouseClicked(double, double, int)` → `mouseClicked(MouseButtonEvent)`.
+  `AbstractContainerScreen.mouseClicked(MouseButtonEvent, boolean)` (extra
+  consumed flag).
+- `GuiGraphics` removed; replaced by `GuiGraphicsExtractor` (extract-then-render).
+- `Level.isClientSide` field is private; use `Level.isClientSide()` method.
+
 ## [0.1.0] — 2026-04-26
 
 Initial public release. Inspired by the Locker block in the game **Rust**:
@@ -64,4 +123,5 @@ place a Locker, stash your kit, swap between up to 6 saved loadouts.
 - GameTest CI job is wired up but disabled (`if: false`); the structure NBT
   template hasn't been verified in a runtime GameTest server pass.
 
+[0.2.0-alpha.1]: https://github.com/targetedentropy/lockers/releases/tag/v0.2.0-alpha.1
 [0.1.0]: https://github.com/targetedentropy/lockers/releases/tag/v0.1.0

@@ -17,4 +17,5 @@ include(
     ":common",
     ":neoforge-1.21.1",
     ":neoforge-1.21.4",
+    ":neoforge-26.1.2",
 )
