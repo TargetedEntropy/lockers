@@ -23,12 +23,32 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permissions;
 import net.minecraft.world.entity.EquipmentSlot.Type;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+/**
+ * 26.1.2 port of {@link LockerBlockEntity}.
+ * <p>
+ * Notable per-version differences from the 1.21.1 / 1.21.4 siblings:
+ * <ul>
+ *   <li>{@code saveAdditional(CompoundTag, HolderLookup.Provider)} →
+ *       {@code saveAdditional(ValueOutput)} (data-format-agnostic IO API).
+ *       Same for {@code loadAdditional} → {@link ValueInput}.</li>
+ *   <li>{@code GameProfile.getName()} → {@code GameProfile.name()} (authlib 7.x
+ *       made the class a record).</li>
+ *   <li>{@code player.hasPermissions(2)} → permission-set lookup against
+ *       {@link Permissions#COMMANDS_GAMEMASTER} — vanilla level 2 ≈ ops with
+ *       gamemaster command access.</li>
+ *   <li>{@code displayClientMessage(component, true)} (overlay) →
+ *       {@code sendOverlayMessage(component)}.</li>
+ * </ul>
+ */
 public class LockerBlockEntity extends BlockEntity {
 
     private static final String TAG_ROOT = "lockerData";
@@ -39,34 +59,18 @@ public class LockerBlockEntity extends BlockEntity {
         super(LockersBlockEntities.LOCKER.get(), pos, state);
     }
 
-    // --- placement & accessors -------------------------------------------------
-
     public void initOnPlace(ServerPlayer placer) {
         this.data = LockerData.fresh(
                 placer.getUUID(),
-                placer.getGameProfile().getName(),
+                placer.getGameProfile().name(),
                 Instant.now());
         setChanged();
     }
 
-    /**
-     * Returns the persisted {@link LockerData} if present.
-     * <p>
-     * Empty during the brief window between block placement and the first
-     * {@link #initOnPlace} call (loaded chunks always have data because
-     * {@link #loadAdditional} populates it). Callers MUST handle the empty
-     * case rather than {@code .get()}-ing.
-     */
     public Optional<LockerData> data() {
         return Optional.ofNullable(data);
     }
 
-    /**
-     * Test-only: swap in a {@link LockerData} directly. Production code paths
-     * should call {@link #initOnPlace} / {@link #saveLoadoutFromPlayer} etc.
-     * Named to avoid colliding with the inherited
-     * {@code BlockEntity.setData(AttachmentType, T)} overload.
-     */
     public void replaceData(LockerData newData) {
         this.data = newData;
         setChanged();
@@ -74,22 +78,13 @@ public class LockerBlockEntity extends BlockEntity {
 
     public boolean canAccess(ServerPlayer player) {
         if (data == null) return false;
-        boolean isOp = player.hasPermissions(2);
+        boolean isOp = player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
         return AccessPolicy.canAccess(player.getUUID(), isOp, data, CommonConfig.defaults())
                 .allowed();
     }
 
     // --- loadout operations ----------------------------------------------------
 
-    /**
-     * MOVE-from-player. Capture armor + offhand + accessories off the player,
-     * write into {@code slot}, then clear the captured slots on the player —
-     * the items physically move into the locker.
-     * <p>
-     * If {@code slot} already held a loadout, those items are returned to the
-     * player's main inventory before the new loadout overwrites (the GUI's
-     * confirm gate ensures this only happens deliberately).
-     */
     public void saveLoadoutFromPlayer(int slot, String rawName, ServerPlayer sp) {
         if (data == null) return;
         String name = sanitizeName(rawName, "Loadout " + (slot + 1));
@@ -110,21 +105,15 @@ public class LockerBlockEntity extends BlockEntity {
         Map<SlotId, byte[]> accessories = new LinkedHashMap<>(BridgeRegistry.get().capture(sp));
 
         if (equipment.isEmpty() && accessories.isEmpty()) {
-            sp.displayClientMessage(
-                    Component.translatable("message.lockers.nothing_to_save"), true);
+            sp.sendOverlayMessage(Component.translatable("message.lockers.nothing_to_save"));
             return;
         }
 
-        // Slot already populated? Eject its contents to the player's inventory
-        // before overwriting (the confirm UX has already gated this path).
         data.slot(slot).ifPresent(old -> returnLoadoutToInventory(sp, old, regs));
 
         Loadout lo = new Loadout(name, Instant.now(), equipment, accessories);
         this.data = data.withSlot(slot, lo);
 
-        // MOVE semantics: items now live in the locker, so clear the player's
-        // slots we just captured. Empty the vanilla equipment slots directly,
-        // and let the bridge clear the accessory slots it owns.
         for (EquipmentSlot eqSlot : equipment.keySet()) {
             sp.setItemSlot(toMcSlot(eqSlot), ItemStack.EMPTY);
         }
@@ -132,16 +121,9 @@ public class LockerBlockEntity extends BlockEntity {
 
         setChanged();
         syncTo(sp);
-        sp.displayClientMessage(
-                Component.translatable("message.lockers.saved", name), true);
+        sp.sendOverlayMessage(Component.translatable("message.lockers.saved", name));
     }
 
-    /**
-     * MOVE-to-player. Install the saved loadout's armor + offhand + accessories
-     * onto the player, returning whatever the player was wearing in those slots
-     * to their main inventory. The locker slot is cleared afterwards — items
-     * physically leave the locker, so the slot entry goes empty.
-     */
     public void loadLoadoutToPlayer(int slot, ServerPlayer sp) {
         if (data == null) return;
         Optional<Loadout> maybe = data.slot(slot);
@@ -157,12 +139,10 @@ public class LockerBlockEntity extends BlockEntity {
 
         BridgeRegistry.get().apply(sp, lo.accessories());
 
-        // Loadout has been moved out of the locker; clear the slot.
         this.data = data.clearSlot(slot);
         setChanged();
         syncTo(sp);
-        sp.displayClientMessage(
-                Component.translatable("message.lockers.loaded", lo.name()), true);
+        sp.sendOverlayMessage(Component.translatable("message.lockers.loaded", lo.name()));
     }
 
     public void renameLoadout(int slot, String rawName, ServerPlayer sp) {
@@ -183,18 +163,13 @@ public class LockerBlockEntity extends BlockEntity {
         syncTo(sp);
     }
 
-    /**
-     * Owner-only access-control toggle. Validated against
-     * {@link AccessPolicy#canModifyAccess} which restricts to the owner (or
-     * ops with {@code opsBypassOwnership}); silently dropped otherwise.
-     */
     public void changeAccess(com.targetedentropy.lockers.common.model.AccessControl newAccess,
                              ServerPlayer sp) {
         if (data == null) return;
-        boolean isOp = sp.hasPermissions(2);
+        boolean isOp = sp.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
         if (!AccessPolicy.canModifyAccess(sp.getUUID(), isOp, data, CommonConfig.defaults())
                 .allowed()) {
-            return;  // silently drop — never leak that the locker exists
+            return;
         }
         this.data = data.withAccess(newAccess);
         setChanged();
@@ -208,24 +183,25 @@ public class LockerBlockEntity extends BlockEntity {
         PacketDistributor.sendToPlayer(sp, new SyncLockerPacket(getBlockPos(), data));
     }
 
-    // --- NBT persistence -------------------------------------------------------
+    // --- NBT persistence (26.1.2 ValueOutput / ValueInput) ---------------------
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
         if (data != null) {
             DataTag.Compound encoded = LockerDataCodec.encode(data);
-            tag.put(TAG_ROOT, DataTagBridge.toCompoundTag(encoded));
+            CompoundTag tag = DataTagBridge.toCompoundTag(encoded);
+            output.store(TAG_ROOT, CompoundTag.CODEC, tag);
         }
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
-        if (tag.contains(TAG_ROOT)) {
-            DataTag.Compound encoded = DataTagBridge.fromCompoundTag(tag.getCompound(TAG_ROOT));
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+        input.read(TAG_ROOT, CompoundTag.CODEC).ifPresent(tag -> {
+            DataTag.Compound encoded = DataTagBridge.fromCompoundTag(tag);
             this.data = LockerDataCodec.decode(encoded);
-        }
+        });
     }
 
     // --- helpers ---------------------------------------------------------------
@@ -236,12 +212,6 @@ public class LockerBlockEntity extends BlockEntity {
         out.put(key, ItemStackSerializer.toBytes(stack, regs));
     }
 
-    /**
-     * Set the equipment slot. If the slot in the loadout is absent, we leave
-     * the player's current item in place (do not clear). This is a deliberate
-     * "merge" semantics — lets a player save chest+legs only and apply without
-     * stripping head/feet.
-     */
     private static void applySlot(ServerPlayer sp,
                                   net.minecraft.world.entity.EquipmentSlot vanillaSlot,
                                   byte[] bytes,
@@ -251,12 +221,10 @@ public class LockerBlockEntity extends BlockEntity {
         ItemStack old = sp.getItemBySlot(vanillaSlot);
         sp.setItemSlot(vanillaSlot, newStack);
         if (!old.isEmpty() && vanillaSlot.getType() != Type.HUMANOID_ARMOR) {
-            // Offhand: give the previous item back so we never silently delete.
             if (!sp.getInventory().add(old)) {
-                sp.drop(old, /*dropAround=*/false);
+                sp.drop(old, false);
             }
         } else if (!old.isEmpty()) {
-            // Armor slot: return the replaced armor to the player's main inventory.
             if (!sp.getInventory().add(old)) {
                 sp.drop(old, false);
             }
@@ -273,7 +241,6 @@ public class LockerBlockEntity extends BlockEntity {
         return trimmed;
     }
 
-    /** Map our common-module {@link EquipmentSlot} to vanilla MC's. */
     private static net.minecraft.world.entity.EquipmentSlot toMcSlot(EquipmentSlot s) {
         return switch (s) {
             case HEAD    -> net.minecraft.world.entity.EquipmentSlot.HEAD;
@@ -284,12 +251,6 @@ public class LockerBlockEntity extends BlockEntity {
         };
     }
 
-    /**
-     * Return all items in {@code lo} (both equipment and accessories) to
-     * {@code sp}'s main inventory; drop on the floor if the inventory is full.
-     * Used when Save overwrites a populated slot — old loadout items must
-     * not be silently destroyed.
-     */
     private static void returnLoadoutToInventory(ServerPlayer sp, Loadout lo, HolderLookup.Provider regs) {
         for (byte[] bytes : lo.equipment().values()) {
             addOrDrop(sp, ItemStackSerializer.fromBytes(bytes, regs));

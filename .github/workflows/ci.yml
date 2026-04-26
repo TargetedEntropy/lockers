@@ -23,7 +23,12 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          # Install both 21 and 25 so the per-module toolchain (Java 21 for
+          # 1.21.x, Java 25 for 26.1.2) resolves locally instead of having
+          # foojay re-download every CI run.
+          java-version: |
+            21
+            25
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew :common:check
       - name: Upload JaCoCo report
@@ -49,13 +54,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mc_version: ["1.21.1", "1.21.4"]
+        mc_version: ["1.21.1", "1.21.4", "26.1.2"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          # Install both 21 and 25 so the per-module toolchain (Java 21 for
+          # 1.21.x, Java 25 for 26.1.2) resolves locally instead of having
+          # foojay re-download every CI run.
+          java-version: |
+            21
+            25
       - uses: gradle/actions/setup-gradle@v6
       - name: Build
         run: ./gradlew :neoforge-${{ matrix.mc_version }}:build
@@ -73,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mc_version: ["1.21.1", "1.21.4"]
+        mc_version: ["1.21.1", "1.21.4", "26.1.2"]
     # GameTest not yet implemented in the scaffold — this job is wired up so
     # it runs as soon as tests are added under neoforge-*/src/gametest/.
     if: false
@@ -82,7 +92,12 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          # Install both 21 and 25 so the per-module toolchain (Java 21 for
+          # 1.21.x, Java 25 for 26.1.2) resolves locally instead of having
+          # foojay re-download every CI run.
+          java-version: |
+            21
+            25
       - uses: gradle/actions/setup-gradle@v6
       - name: Run GameTest server
         run: ./gradlew :neoforge-${{ matrix.mc_version }}:runGameTestServer

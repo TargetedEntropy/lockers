@@ -101,7 +101,7 @@ public class LockerBlock extends BaseEntityBlock {
     public void setPlacedBy(Level level, BlockPos pos, BlockState state,
                             @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (level.isClientSide) return;
+        if (level.isClientSide()) return;
         if (state.getValue(PART) != LockerPart.BOTTOM) return;
 
         // Drop in MIDDLE and TOP siblings (BlockFlags = NOTIFY_NEIGHBOURS | UPDATE_CLIENTS)
@@ -115,7 +115,8 @@ public class LockerBlock extends BaseEntityBlock {
         LockerData restored = readLockerData(stack);
         if (restored != null) {
             if (placer instanceof ServerPlayer sp) {
-                be.replaceData(restored.withOwner(sp.getUUID(), sp.getGameProfile().getName()));
+                // 26.1.2: authlib 7.x made GameProfile a record; getName() → name().
+                be.replaceData(restored.withOwner(sp.getUUID(), sp.getGameProfile().name()));
             } else {
                 be.replaceData(restored);
             }
@@ -130,7 +131,7 @@ public class LockerBlock extends BaseEntityBlock {
 
     @Override
     public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide()) {
             BlockPos bottomPos = bottomOf(pos, state);
 
             // Capture drop with NBT BEFORE we remove the BOTTOM block.
@@ -212,7 +213,7 @@ public class LockerBlock extends BaseEntityBlock {
     @Override
     public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
                                              Player player, BlockHitResult hit) {
-        if (level.isClientSide) return InteractionResult.SUCCESS;
+        if (level.isClientSide()) return InteractionResult.SUCCESS;
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
         BlockPos bottomPos = bottomOf(pos, state);
@@ -224,7 +225,9 @@ public class LockerBlock extends BaseEntityBlock {
             return InteractionResult.PASS;
         }
         if (!be.canAccess(sp)) {
-            sp.displayClientMessage(Component.translatable("message.lockers.not_owner"), true);
+            // 26.1.2: displayClientMessage(component, overlay=true) split into
+            // sendOverlayMessage / sendSystemMessage.
+            sp.sendOverlayMessage(Component.translatable("message.lockers.not_owner"));
             return InteractionResult.CONSUME;
         }
         sp.openMenu(new LockerMenuProvider(be), bottomPos);
@@ -274,7 +277,10 @@ public class LockerBlock extends BaseEntityBlock {
         CompoundTag tag = cd.copyTag();
         if (!tag.contains(STORAGE_KEY)) return null;
         try {
-            return LockerDataCodec.decode(DataTagBridge.fromCompoundTag(tag.getCompound(STORAGE_KEY)));
+            // 26.1.2: CompoundTag.getCompound returns Optional<CompoundTag>.
+            return tag.getCompound(STORAGE_KEY)
+                    .map(c -> LockerDataCodec.decode(DataTagBridge.fromCompoundTag(c)))
+                    .orElse(null);
         } catch (IllegalStateException e) {
             return null;
         }

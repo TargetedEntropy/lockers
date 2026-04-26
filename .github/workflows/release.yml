@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        mc_version: ["1.21.1", "1.21.4"]
+        mc_version: ["1.21.1", "1.21.4", "26.1.2"]
     outputs:
       mod_version: ${{ steps.version.outputs.mod_version }}
     steps:
@@ -35,7 +35,11 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          # Install both Java 21 (for 1.21.x) and Java 25 (for MC 26.1.2);
+          # Gradle's per-module toolchain picks the right one.
+          java-version: |
+            21
+            25
       - uses: gradle/actions/setup-gradle@v6
       - name: Build
         run: ./gradlew :neoforge-${{ matrix.mc_version }}:build
@@ -82,7 +86,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mc_version: ["1.21.1", "1.21.4"]
+        mc_version: ["1.21.1", "1.21.4", "26.1.2"]
     steps:
       - uses: actions/checkout@v6
       - name: Download jar

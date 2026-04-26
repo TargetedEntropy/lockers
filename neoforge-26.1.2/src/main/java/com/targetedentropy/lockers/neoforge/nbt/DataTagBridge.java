@@ -36,7 +36,8 @@ public final class DataTagBridge {
     /** Minecraft CompoundTag → DataTag.Compound (recursive). */
     public static DataTag.Compound fromCompoundTag(CompoundTag in) {
         Map<String, DataTag> entries = new LinkedHashMap<>();
-        for (String key : in.getAllKeys()) {
+        // 26.1.2: getAllKeys() → keySet()
+        for (String key : in.keySet()) {
             entries.put(key, fromMcTag(in.get(key)));
         }
         return new DataTag.Compound(entries);
@@ -63,9 +64,11 @@ public final class DataTagBridge {
             for (Tag child : l) items.add(fromMcTag(child));
             return new DataTag.ListTag(items);
         }
-        if (tag instanceof StringTag s) return new DataTag.StringTag(s.getAsString());
-        if (tag instanceof IntTag i) return new DataTag.IntTag(i.getAsInt());
-        if (tag instanceof LongTag l) return new DataTag.LongTag(l.getAsLong());
+        // 26.1.2: primitive NBT classes are records; auto-generated value()
+        // accessor replaces the legacy getAsXxx() methods.
+        if (tag instanceof StringTag s) return new DataTag.StringTag(s.value());
+        if (tag instanceof IntTag i) return new DataTag.IntTag(i.value());
+        if (tag instanceof LongTag l) return new DataTag.LongTag(l.value());
         if (tag instanceof ByteArrayTag b) return new DataTag.ByteArrayTag(b.getAsByteArray());
         throw new IllegalStateException("unsupported NBT tag: "
                 + (tag == null ? "null" : tag.getClass().getSimpleName()));
