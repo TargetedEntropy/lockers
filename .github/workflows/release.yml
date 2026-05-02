@@ -49,7 +49,7 @@ jobs:
           MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d'=' -f2)
           echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jars-${{ matrix.mc_version }}
           path: neoforge-${{ matrix.mc_version }}/build/libs/*.jar
