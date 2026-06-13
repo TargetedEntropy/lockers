@@ -40,7 +40,7 @@ jobs:
           retention-days: 7
       - name: Upload coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: common/build/reports/jacoco/test/jacocoTestReport.xml
           flags: common
