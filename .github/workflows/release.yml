@@ -29,7 +29,7 @@ jobs:
     outputs:
       mod_version: ${{ steps.version.outputs.mod_version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
       - uses: actions/setup-java@v4
@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download all jars
         uses: actions/download-artifact@v8
         with:
@@ -104,7 +104,7 @@ jobs:
       matrix:
         mc_version: ["1.21.1", "1.21.4", "26.1.2"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download jar
         uses: actions/download-artifact@v8
         with:
