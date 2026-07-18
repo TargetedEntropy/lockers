@@ -1,6 +1,6 @@
 [versions]
 # Build tooling
-moddev = "2.0.141"
+moddev = "2.0.142"
 jacoco = "0.8.12"
 
 # Test stack
