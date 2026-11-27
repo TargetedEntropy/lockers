@@ -44,6 +44,19 @@ public record Loadout(
         return new Loadout(name, now, Map.of(), Map.of());
     }
 
+    /**
+     * Normalise a player-supplied loadout name: strip whitespace, fall back to
+     * {@code fallback} when blank or {@code null}, and truncate to
+     * {@link #MAX_NAME_LENGTH}. Client input is untrusted, so every name that
+     * reaches a {@code Loadout} goes through here.
+     */
+    public static String sanitizeName(String raw, String fallback) {
+        if (raw == null) return fallback;
+        String trimmed = raw.strip();
+        if (trimmed.isEmpty()) return fallback;
+        return trimmed.length() > MAX_NAME_LENGTH ? trimmed.substring(0, MAX_NAME_LENGTH) : trimmed;
+    }
+
     public Loadout withName(String newName) {
         return new Loadout(newName, savedAt, equipment, accessories);
     }

@@ -1,0 +1,15 @@
+name: Set up build toolchain
+description: >
+  Install Java 21 (MC 1.21.x modules) and Java 25 (MC 26.1.x modules) so each
+  module's Gradle toolchain resolves locally instead of foojay downloading it
+  on every run, then set up Gradle caching.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: |
+          21
+          25
+    - uses: gradle/actions/setup-gradle@v6

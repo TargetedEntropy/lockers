@@ -9,11 +9,10 @@ import java.util.Set;
  * slot contents on a player.
  * <p>
  * Parameterized on opaque {@code PLAYER} and {@code STACK} types so that
- * {@code common} never imports {@code net.minecraft.*}. Each per-version
- * NeoForge module provides a bound implementation
- * ({@code Curios9Bridge}, {@code Curios10Bridge}, {@code Accessories1Bridge},
- * {@code Accessories2Bridge}) and a {@code NoopAccessoryBridge} fallback for
- * servers where neither mod is installed.
+ * {@code common} never imports {@code net.minecraft.*}. The NeoForge side
+ * binds it to {@code ServerPlayer}/{@code ItemStack} in {@code CuriosBridge}
+ * and {@code AccessoriesBridge}; {@link NoopAccessoryBridge} is the fallback
+ * for servers where neither mod is installed.
  *
  * @param <P> the platform Player type (e.g. {@code net.minecraft.server.level.ServerPlayer})
  * @param <S> the platform ItemStack type (e.g. {@code net.minecraft.world.item.ItemStack})

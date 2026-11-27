@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Lockers** is a NeoForge Minecraft mod. Players place a Locker block and save up to 6 named loadouts (4 armor slots + offhand + all accessory slots), then swap between them instantly. Inspired by Rust's locker.
 
-The repo supports **multiple Minecraft versions in parallel**: each version lives in its own Gradle subproject (`neoforge-1.21.1`, `neoforge-1.21.4`, …). Adding a new MC version = copy the most recent `neoforge-*` module, patch API diffs, add it to `settings.gradle.kts`.
+The repo supports **multiple Minecraft versions in parallel**: each version is its own Gradle subproject (`neoforge-1.21.1`, `neoforge-1.21.4`, `neoforge-26.1.2`), but almost all NeoForge code is written once under `neoforge-shared/` and compiled into every one of them. A version module holds only what genuinely differs.
 
 ## Architecture
 
@@ -14,46 +14,53 @@ The repo supports **multiple Minecraft versions in parallel**: each version live
 
 `common/` is plain `java-library`. It holds every piece of logic that is version-independent:
 
-- `model/` — `SlotId`, `Loadout`, `LockerData` records
+- `model/` — `SlotId`, `Loadout`, `LockerData` records (+ `Loadout.sanitizeName`, `SlotId.parseIndexed`)
+- `loadout/` — `LoadoutService` (save/load/rename/delete rules: MOVE semantics, MERGE on apply, empty-save rejection) over a `PlayerEquipment<P>` port; returns a `LoadoutOutcome` (new state + feedback message) for the caller to persist
 - `serialize/` — `DataTag` sealed-interface facade (our MC-free NBT substitute) and `LockerDataCodec`
-- `compat/` — generic `AccessoryBridge<PLAYER, STACK>` interface + `BridgeRegistry` selection logic
+- `compat/` — generic `AccessoryBridge<PLAYER, STACK>` interface + `BridgeSelector` selection logic
 - `access/` — `AccessControl` enum and `canAccess(...)` pure function
 - `config/` — `CommonConfig` DTO
 
 `common` is where the **90% JaCoCo coverage gate** is enforced. Unit tests here must not import `net.minecraft.*` — doing so would pull Mojang mappings into `common` and defeat the whole architecture. If you need a MC type in a test, add a factory interface to `common` instead and mock it.
 
-### Per-version modules
+### NeoForge code: shared trees + per-version seam
 
-Each `neoforge-<mcver>/` module provides the Minecraft-facing shell:
+NeoForge sources are layered. Each `neoforge-<ver>/build.gradle.kts` adds the shared trees as extra `java.srcDir`s (the same trick `common-resources/` uses for resources):
 
-- `LockersMod` — mod entrypoint, wires `BridgeRegistry` via `ModList.get().isLoaded(...)` checks
-- `registry/` — `DeferredRegister` for blocks, items, block entities, menus, data components
-- `block/LockerBlock`, `block/LockerBlockEntity` — owner UUID + loadouts persist via `DataTag` bridge
-- `menu/LockerMenu`, `client/screen/LockerScreen` — virtual-slot menu; 6-tab GUI with armor avatar
-- `network/` — payload packets (save/load/rename/delete/sync)
-- `nbt/DataTagBridge` — the **only** adapter between `CompoundTag` and `common`'s `DataTag`
-- `compat/curios/*Bridge`, `compat/accessories/*Bridge` — per-version Curios/Accessories impls
+| Tree | Compiled into | Holds |
+|---|---|---|
+| `neoforge-shared/all/main/java` | every module | `LockersMod`, registries, `LockerBlockBase`, `LockerBlockEntityBase`, `LockerMenu`, all packets + `LockerPayloadHandler`, `CuriosBridge`, `ItemStackSerializer`, `LockerDataNbt`, `ServerPlayerEquipment` |
+| `neoforge-shared/1.21.x/main/java` | 1.21.1, 1.21.4 | `LockerScreen` (full GUI), `LockerBlockEntity` (CompoundTag persistence), `AccessoriesBridge`, `DataTagBridge` |
+| `neoforge-shared/1.21.x/gametest/java` | 1.21.1, 1.21.4 gametest source set | `LockerPlacementGameTest` |
+| `neoforge-<ver>/src/main/java` | that module only | `McCompat`, `LockerBlock`, plus (26.1.2) `LockerBlockEntity`, `DataTagBridge`, `LockerScreen` stub |
+
+**`McCompat` is the version seam.** Every API call that differs between MC lines (`id()` for `ResourceLocation` vs `Identifier`, action-bar messages, profile name, op check, `CompoundTag.getCompound`, max build height, `BlockEntityType` construction, which Accessories bridge exists) is a static method with the same signature in each module's `McCompat`. Shared code calls `McCompat.x(...)` and never names the differing API directly.
+
+**Base + thin subclass** where an *override signature* differs (can't be shimmed): `LockerBlockBase` → per-version `LockerBlock` (`codec()`, `getCloneItemStack`), `LockerBlockEntityBase` → per-version/tier `LockerBlockEntity` (`saveAdditional`/`loadAdditional`).
+
+Rules of thumb:
+- New NeoForge code goes in `neoforge-shared/all` unless it won't compile there. If it differs by one call, add a `McCompat` method; don't copy the file.
+- If logic doesn't need Minecraft types at all, it belongs in `common` (with tests), not in `neoforge-shared`.
+- IntelliJ attaches a shared srcDir to only one module; Gradle compiles it for all. Always build every module (`./gradlew build`) after touching `neoforge-shared/`.
 
 ### Compat layer contract (important)
 
-`AccessoryBridge` is generic on `<PLAYER, STACK>` so Minecraft types never leak into `common`. The bound `McAccessoryBridge = AccessoryBridge<ServerPlayer, ItemStack>` lives in each per-version module. At mod construction, `BridgeRegistry.select(modList, config)` picks one of:
+`AccessoryBridge` is generic on `<PLAYER, STACK>` so Minecraft types never leak into `common`. The NeoForge side binds it to `AccessoryBridge<ServerPlayer, ItemStack>`. At mod construction, `LockersMod` feeds `ModList.get().isLoaded(...)` into `BridgeSelector.choose(...)`, stores the result in `BridgeRegistry`, and gets one of:
 
-- `Curios*Bridge` if Curios is loaded (preferred when both present, per default config)
-- `Accessories*Bridge` if Accessories is loaded
+- `CuriosBridge` if Curios is loaded (preferred when both present, per default config). One class compiles against Curios 9, 10 and 15.
+- `AccessoriesBridge` if Accessories is loaded **and** `McCompat.accessoriesBridge()` offers one for this MC line (26.1.2 has none yet, so Accessories counts as unavailable there and a preference for it degrades with a warning)
 - `NoopAccessoryBridge` (from `common`) otherwise — armor + offhand still save, just no accessory slots
 
 The `preferred_accessory_impl` config (AUTO | CURIOS | ACCESSORIES | NONE) overrides. Do **not** reach for `ServiceLoader` — `ModList` is authoritative.
 
 ### Version divergence is real
 
-API deltas confirmed between 1.21.1 and 1.21.4 during this scaffold:
+API deltas we've hit (each is absorbed by `McCompat` or a base/subclass split):
 
-- `DirectionProperty` is removed in 1.21.4 — use `EnumProperty<Direction>` (both modules keep the same field name `FACING`)
-- `BlockEntityType.Builder` is removed in 1.21.4 — use the public constructor `new BlockEntityType<>(factory, block)`
-- **Curios 9 → 10 API break** — `CuriosApi.getCuriosHelper()` removed, replaced by `CuriosApi.getCuriosInventory(Player)`; capability-style registration replaces direct events. The `Curios9Bridge` (1.21.1) and `Curios10Bridge` (1.21.4) exist specifically to isolate this break.
-- `BlockEntity.saveAdditional` / `loadAdditional` take `HolderLookup.Provider` in both 1.21.1 and 1.21.4 (the addition actually landed before 1.21.1 — do not assume this is a 1.21.4-only change).
-
-If a change seems to apply to both modules identically, the logic likely belongs in `common` instead.
+- 1.21.4: `DirectionProperty` removed (`LockerBlockBase.FACING` is typed `Property<Direction>` so it fits both); `BlockEntityType.Builder` removed; `getMaxBuildHeight()` → `getMaxY()`; `getCloneItemStack` gained an `includeData` parameter.
+- `BlockEntity.saveAdditional` / `loadAdditional` take `HolderLookup.Provider` in both 1.21.1 and 1.21.4 (the addition landed before 1.21.1).
+- 26.1.2: `ResourceLocation` → `Identifier`; `ValueOutput`/`ValueInput` persistence; `GameProfile` is a record; permission sets replace levels; `sendOverlayMessage`; `CompoundTag.getCompound` returns `Optional`; GUI pipeline rewrite (screen is a stub). Full list in `docs/PORTING-NOTES-26.1.2.md`.
+- Curios 9 / 10 / 15 and Accessories 1.1 / 1.2: **no** break in the API surface we use, so there is one bridge class each.
 
 ## Common commands
 
@@ -109,6 +116,14 @@ should be marked required.
 creates a GitHub Release with jars attached, then uploads to CurseForge
 (required) and Modrinth (optional — skipped if `MODRINTH_TOKEN` is absent).
 
+- Release notes come from `scripts/release-notes.sh <mod_version> <owner/repo>`, which
+  prints that version's `## [<mod_version>]` section of `CHANGELOG.md` (or a pointer
+  to the full changelog if there is none). Run it locally to preview.
+- The CurseForge/Modrinth channel follows `mod_version`: `-alpha*` → alpha,
+  `-beta*`/`-rc*` → beta, otherwise release.
+- Every CI/release job sets up Java 21 + 25 and Gradle via the local composite
+  action `.github/actions/setup-build`.
+
 **Required secrets** (set in GitHub repo settings before tagging a release):
 
 - `CURSEFORGE_TOKEN` — CurseForge API token with upload scope
@@ -119,13 +134,15 @@ Tag format: `v<mod_version>` (e.g. `v0.1.0-alpha.1`). Jar names pattern:
 
 ## Adding a new Minecraft version
 
-1. Copy `neoforge-1.21.4/` to `neoforge-<new-ver>/`.
+1. Copy `neoforge-26.1.2/` to `neoforge-<new-ver>/` — it's small: build script, `mods.toml`, `McCompat`, `LockerBlock`, and the few classes not yet shared. Decide which `neoforge-shared/` trees it compiles.
 2. Update the NeoForge coordinate in `gradle/libs.versions.toml`.
 3. Update Curios and Accessories coordinates — check the Modrinth API for
    current versions targeting the new MC (see commands below).
 4. Add the new subproject to `settings.gradle.kts`.
-5. Fix compile errors. They will concentrate in `BlockEntity` NBT methods,
-   `Block.useItemOn`, and payload registration.
+5. Fix compile errors. Where shared code breaks on a single call, add a
+   `McCompat` method (in **every** module) rather than forking the file; where
+   an override signature changes, put the override in the version's
+   `LockerBlock` / `LockerBlockEntity` subclass.
 6. Add the new version to the CI matrix in `.github/workflows/ci.yml`.
 
 ```sh
@@ -139,6 +156,7 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - **Don't put Curios/Accessories logic in `common/`.** Only the generic interface goes there.
 - **Don't collect JaCoCo from GameTest runs.** The agent conflicts with NeoForge transforms.
 - **Don't use `ServiceLoader` for bridge selection.** `ModList.get().isLoaded(...)` is authoritative.
+- **Don't copy a NeoForge class into another version module.** Put it in `neoforge-shared/` and route the differing call through `McCompat`.
 - **Don't use `--no-verify` on commits.** If a hook fails, fix it.
 
 ## What's implemented vs. stubbed (v0.1.0-alpha.5)
@@ -163,6 +181,7 @@ curl -s "https://api.modrinth.com/v2/project/curios/version?loaders=%5B%22neofor
 - ✅ **Public/Private access toggle** in the GUI, visible only to the owner. `ChangeAccessPacket` validated server-side via `AccessPolicy.canModifyAccess`.
 - ✅ **Empty saves are rejected** ("Nothing to save..." action-bar message).
 - ✅ **Locker carries loadouts through break + replace** via `DataComponents.CUSTOM_DATA` under key `lockers:saved_locker_data`. New placer becomes owner; saved slots survive. Middle-click pick-block also copies the data on creative.
+- ⚠️ **26.1.2 GUI is a placeholder.** `neoforge-26.1.2/.../client/LockerScreen` opens blank (26.1's `GuiGraphicsExtractor` rewrite); server-side block, persistence, networking and Curios work. Accessories is unavailable on 26.1.2 until Wisp Forest publishes a build.
 - ⚠️ **DataGen is not active.** Recipes, models, loot, and blockstates live as static JSON under `common-resources/`. If the set grows, wire `GatherDataEvent` in each module and delete the static copies.
 - ⚠️ **GUI textures not authored.** `LockerScreen` draws a plain dark rectangle — `textures/gui/locker.png` is referenced but not shipped; the plain fill fallback is acceptable for alpha.
 - ⚠️ **GameTest job remains gated** (`if: false`). The `LockerPlacementGameTest` exists and compiles, but it expects a `lockers:empty_3x3` structure NBT under `data/lockers/structures/` that has not been authored. Without the structure file, the CI job won't run successfully — leaving it gated until someone with a hands-on session can author the binary `.nbt` (or correct-format `.snbt`) and verify it loads on both 1.21.1 and 1.21.4.
