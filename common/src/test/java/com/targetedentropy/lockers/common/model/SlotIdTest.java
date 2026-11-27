@@ -91,4 +91,20 @@ class SlotIdTest {
         assertThat(id.namespace()).isEqualTo("mod");
         assertThat(id.path()).isEqualTo("deep/path/with/slashes");
     }
+
+    @Test
+    void indexedRoundTrips() {
+        SlotId id = SlotId.indexed("curios", "ring", 1);
+        assertThat(id.asString()).isEqualTo("curios:ring/1");
+        assertThat(id.parseIndexed()).contains(new SlotId.Indexed("ring", 1));
+    }
+
+    @Test
+    void parseIndexedKeepsNestedGroupAndRejectsMalformedPaths() {
+        assertThat(SlotId.parse("x:a/b/3").parseIndexed()).contains(new SlotId.Indexed("a/b", 3));
+        assertThat(SlotId.parse("x:ring").parseIndexed()).isEmpty();
+        assertThat(SlotId.parse("x:/3").parseIndexed()).isEmpty();
+        assertThat(SlotId.parse("x:ring/").parseIndexed()).isEmpty();
+        assertThat(SlotId.parse("x:ring/abc").parseIndexed()).isEmpty();
+    }
 }

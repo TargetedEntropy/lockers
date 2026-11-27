@@ -100,8 +100,13 @@ public record LockerData(
         return slots.get(index);
     }
 
+    /** Whether {@code index} names one of the {@link #SLOT_COUNT} slots. */
+    public static boolean isValidSlot(int index) {
+        return index >= 0 && index < SLOT_COUNT;
+    }
+
     private static void requireValidSlotIndex(int index) {
-        if (index < 0 || index >= SLOT_COUNT) {
+        if (!isValidSlot(index)) {
             throw new IndexOutOfBoundsException(
                     "slot index " + index + " out of range [0," + SLOT_COUNT + ")");
         }

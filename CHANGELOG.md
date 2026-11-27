@@ -4,6 +4,23 @@ All notable changes to Lockers will be documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0-alpha.3] — 2026-11-27
+
+### Fixed
+
+- **Minecraft 26.1.2: the game no longer crashes on startup with Lockers
+  installed.** The alpha.1 / alpha.2 builds for 26.1.2 failed to load
+  ("Block id not set"). Please update if you're on 26.1.2.
+- Release pages on CurseForge and Modrinth now list alpha builds as
+  **alpha** rather than as stable releases.
+
+### Changed
+
+- Internal cleanup so all three Minecraft versions (1.21.1, 1.21.4, 26.1.2)
+  run the same code for saving, loading and the Locker block. No gameplay
+  changes intended; if a loadout behaves differently than it did in alpha.2,
+  please report it.
+
 ## [0.2.0-alpha.2] — 2026-04-26
 
 ### Fixed

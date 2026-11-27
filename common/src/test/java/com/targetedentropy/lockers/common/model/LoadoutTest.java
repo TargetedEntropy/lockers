@@ -186,4 +186,13 @@ class LoadoutTest {
         Loadout lo = Loadout.empty("x", T0);
         assertThat(lo).isEqualTo(lo);
     }
+
+    @Test
+    void sanitizeNameStripsFallsBackAndTruncates() {
+        assertThat(Loadout.sanitizeName("  pvp ", "fb")).isEqualTo("pvp");
+        assertThat(Loadout.sanitizeName(null, "fb")).isEqualTo("fb");
+        assertThat(Loadout.sanitizeName("   ", "fb")).isEqualTo("fb");
+        assertThat(Loadout.sanitizeName("x".repeat(40), "fb"))
+                .hasSize(Loadout.MAX_NAME_LENGTH);
+    }
 }

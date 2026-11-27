@@ -33,11 +33,15 @@ repositories {
 
 sourceSets {
     main {
+        // Version-invariant sources live under neoforge-shared/ and compile into
+        // every module; only McCompat + the few classes with version-specific
+        // override signatures stay in src/main/java. See CLAUDE.md.
+        java.srcDir(rootProject.layout.projectDirectory.dir("neoforge-shared/all/main/java"))
+        java.srcDir(rootProject.layout.projectDirectory.dir("neoforge-shared/1.21.x/main/java"))
         resources.srcDir(rootProject.layout.projectDirectory.dir("common-resources"))
     }
     create("gametest") {
-        java.srcDir("src/gametest/java")
-        resources.srcDir("src/gametest/resources")
+        java.srcDir(rootProject.layout.projectDirectory.dir("neoforge-shared/1.21.x/gametest/java"))
         compileClasspath += sourceSets.main.get().output
         runtimeClasspath += sourceSets.main.get().output
     }
@@ -65,6 +69,9 @@ neoForge {
     mods {
         register(modId) {
             sourceSet(sourceSets.main.get())
+            // common's classes are part of the mod (the jar task merges them in);
+            // declare that for dev runs too, or FML can't see them at construction.
+            sourceSet(project(":common").sourceSets.main.get())
             sourceSet(sourceSets.named("gametest").get())
         }
     }

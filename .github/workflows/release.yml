@@ -28,26 +28,26 @@ jobs:
         mc_version: ["1.21.1", "1.21.4", "26.1.2"]
     outputs:
       mod_version: ${{ steps.version.outputs.mod_version }}
+      release_type: ${{ steps.version.outputs.release_type }}
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          # Install both Java 21 (for 1.21.x) and Java 25 (for MC 26.1.2);
-          # Gradle's per-module toolchain picks the right one.
-          java-version: |
-            21
-            25
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: ./.github/actions/setup-build
       - name: Build
         run: ./gradlew :neoforge-${{ matrix.mc_version }}:build
       - name: Read mod version
         id: version
         run: |
           MOD_VERSION=$(grep '^mod_version=' gradle.properties | cut -d'=' -f2)
+          # CurseForge / Modrinth release channel follows the semver pre-release tag.
+          case "$MOD_VERSION" in
+            *-alpha*)      RELEASE_TYPE=alpha ;;
+            *-beta*|*-rc*) RELEASE_TYPE=beta ;;
+            *)             RELEASE_TYPE=release ;;
+          esac
           echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -70,20 +70,8 @@ jobs:
       - name: List artifacts
         run: find dist -type f
       - name: Extract this version's changelog section
-        # Pulls "## [<mod_version>] ..." from CHANGELOG.md into RELEASE_NOTES.md;
-        # falls back to a 1-line placeholder if the version isn't documented.
         run: |
-          MOD_VERSION='${{ needs.build.outputs.mod_version }}'
-          awk -v marker="## [$MOD_VERSION]" '
-            in_section && /^## \[/ { exit }
-            index($0, marker) == 1 { in_section = 1 }
-            in_section { print }
-          ' CHANGELOG.md > RELEASE_NOTES.md
-          if [ ! -s RELEASE_NOTES.md ]; then
-            printf '## %s\n\nAutomated release. See [CHANGELOG.md](https://github.com/%s/blob/main/CHANGELOG.md) for full notes.\n' \
-              "$MOD_VERSION" "${{ github.repository }}" > RELEASE_NOTES.md
-          fi
-          echo "--- RELEASE_NOTES.md ---"
+          scripts/release-notes.sh '${{ needs.build.outputs.mod_version }}' '${{ github.repository }}' > RELEASE_NOTES.md
           cat RELEASE_NOTES.md
       - name: Create Release
         env:
@@ -121,20 +109,9 @@ jobs:
           echo "after sources removal:"
           ls -la dist/
       - name: Extract this version's changelog section
-        # Same logic as the github-release job — extract "## [<mod_version>]"
-        # from CHANGELOG.md into RELEASE_NOTES.md, with a 1-line fallback if
-        # the version isn't documented yet.
         run: |
-          MOD_VERSION='${{ needs.build.outputs.mod_version }}'
-          awk -v marker="## [$MOD_VERSION]" '
-            in_section && /^## \[/ { exit }
-            index($0, marker) == 1 { in_section = 1 }
-            in_section { print }
-          ' CHANGELOG.md > RELEASE_NOTES.md
-          if [ ! -s RELEASE_NOTES.md ]; then
-            printf 'Automated release. See https://github.com/%s/blob/main/CHANGELOG.md for full notes.\n' \
-              '${{ github.repository }}' > RELEASE_NOTES.md
-          fi
+          scripts/release-notes.sh '${{ needs.build.outputs.mod_version }}' '${{ github.repository }}' > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
       # Publishes to whichever platforms have secrets/vars configured.
       # Missing CURSEFORGE_TOKEN / MODRINTH_TOKEN cause the action to skip
       # that platform silently rather than fail the whole job.
@@ -148,7 +125,7 @@ jobs:
           files: dist/*.jar
           name: "Lockers ${{ needs.build.outputs.mod_version }} for ${{ matrix.mc_version }}"
           version: "${{ needs.build.outputs.mod_version }}+${{ matrix.mc_version }}"
-          version-type: release
+          version-type: ${{ needs.build.outputs.release_type }}
           loaders: neoforge
           game-versions: ${{ matrix.mc_version }}
           changelog-file: RELEASE_NOTES.md

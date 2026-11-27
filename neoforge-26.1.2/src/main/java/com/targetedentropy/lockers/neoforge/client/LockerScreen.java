@@ -3,8 +3,6 @@ package com.targetedentropy.lockers.neoforge.client;
 import com.targetedentropy.lockers.neoforge.menu.LockerMenu;
 import com.targetedentropy.lockers.neoforge.network.SyncLockerPacket;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -36,15 +34,5 @@ public class LockerScreen extends AbstractContainerScreen<LockerMenu> {
     /** Called by the network handler — placeholder so packets don't crash. */
     public void onSync(SyncLockerPacket pkt) {
         // TODO: render the loadout grid once the GuiGraphicsExtractor port lands.
-    }
-
-    @Override
-    public boolean keyPressed(KeyEvent event) {
-        return super.keyPressed(event);
-    }
-
-    @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        return super.mouseClicked(event, consumed);
     }
 }

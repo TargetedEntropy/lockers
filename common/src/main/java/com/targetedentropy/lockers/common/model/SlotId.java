@@ -1,6 +1,7 @@
 package com.targetedentropy.lockers.common.model;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Stable identifier for an accessory slot across Curios / Accessories / vanilla.
@@ -39,6 +40,32 @@ public record SlotId(String namespace, String path) {
         String ns = encoded.substring(0, colon);
         String p = encoded.substring(colon + 1);
         return new SlotId(ns, p);
+    }
+
+    /**
+     * An accessory slot addressed as {@code <namespace>:<group>/<index>}, the
+     * shape both the Curios and Accessories bridges use.
+     */
+    public static SlotId indexed(String namespace, String group, int index) {
+        return new SlotId(namespace, group + "/" + index);
+    }
+
+    /** {@code <group>/<index>} split into its parts. */
+    public record Indexed(String group, int index) {}
+
+    /**
+     * Split this id's path at its last {@code '/'} into group and index, or
+     * empty if the path is not of that form. The index is not range-checked.
+     */
+    public Optional<Indexed> parseIndexed() {
+        int slash = path.lastIndexOf('/');
+        if (slash <= 0 || slash == path.length() - 1) return Optional.empty();
+        try {
+            return Optional.of(new Indexed(path.substring(0, slash),
+                    Integer.parseInt(path.substring(slash + 1))));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
     public String asString() {

@@ -11,9 +11,10 @@ val curiosVersion: String = providers.gradleProperty("curios_version_26_1_2").ge
 // Parchment + Accessories: not yet published for MC 26.1.2.
 //   - Parchment will be added back when `parchment-26.1.2` lands at
 //     https://maven.parchmentmc.org/org/parchmentmc/data/.
-//   - Accessories: BridgeSelector falls through to NoopAccessoryBridge, so the
-//     mod loads cleanly without it. Add the dependency + Accessories2Bridge
-//     when Wisp Forest publishes a 26.1.2 build.
+//   - Accessories: McCompat.accessoriesBridge() reports it unavailable, so the
+//     selector never picks it. When Wisp Forest publishes a 26.1.2 build, add
+//     the dependency, move AccessoriesBridge from neoforge-shared/1.21.x to
+//     neoforge-shared/all, and return it from McCompat.
 
 project.version = "$modVersion+$mcVersion"
 base {
@@ -39,11 +40,13 @@ repositories {
 
 sourceSets {
     main {
+        // Version-invariant sources live under neoforge-shared/ and compile into
+        // every module; only McCompat + the few classes with version-specific
+        // override signatures stay in src/main/java. See CLAUDE.md.
+        java.srcDir(rootProject.layout.projectDirectory.dir("neoforge-shared/all/main/java"))
         resources.srcDir(rootProject.layout.projectDirectory.dir("common-resources"))
     }
     create("gametest") {
-        java.srcDir("src/gametest/java")
-        resources.srcDir("src/gametest/resources")
         compileClasspath += sourceSets.main.get().output
         runtimeClasspath += sourceSets.main.get().output
     }
@@ -65,6 +68,9 @@ neoForge {
     mods {
         register(modId) {
             sourceSet(sourceSets.main.get())
+            // common's classes are part of the mod (the jar task merges them in);
+            // declare that for dev runs too, or FML can't see them at construction.
+            sourceSet(project(":common").sourceSets.main.get())
             sourceSet(sourceSets.named("gametest").get())
         }
     }
